@@ -1,0 +1,36 @@
+name: Release
+
+# Pushing a version tag (v2.1.0) builds the userscript from that exact commit and
+# publishes it on a GitHub release. Violentmonkey installs and auto-updates from
+# releases/latest/download/JobScore.user.js (see @updateURL in vite.config.js).
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Tag matches package.json and the userscript @version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          meta="$(sed -n 's|^// @version *||p' dist/JobScore.user.js)"
+          echo "tag=$tag package=$pkg userscript=$meta"
+          test "$tag" = "$pkg" && test "$tag" = "$meta"
+      - name: Publish the release with the built script attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/JobScore.user.js --title "$GITHUB_REF_NAME" --generate-notes --verify-tag

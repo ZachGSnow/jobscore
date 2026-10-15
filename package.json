@@ -1,0 +1,27 @@
+{
+  "name": "jobscore",
+  "private": true,
+  "version": "2.1.0",
+  "type": "module",
+  "description": "Violentmonkey userscript that scores a job posting you are looking at.",
+  "author": "Zach Snow",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZachGSnow/jobscore.git"
+  },
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "test": "vitest run",
+    "harness": "node test/harness/serve.mjs"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "jsdom": "^30.1.2",
+    "svelte": "^5.57.2",
+    "vite": "^8.3.4",
+    "vite-plugin-monkey": "^8.1.1",
+    "vitest": "^5.0.4"
+  }
+}

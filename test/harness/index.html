@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Senior Solutions Engineer | Acme Security Careers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Manual test page for the built userscript. It fakes what Violentmonkey provides
+  (GM_* in localStorage) and answers the model call with a canned extraction, so
+  the real bundle, panel and pipeline can be exercised with no API key.
+  Visit /jobs/x?case=good|nopay|hybrid|territory|ote   (default: good)
+-->
+<style>
+  body { font: 15px/1.6 system-ui, sans-serif; margin: 0; color: #1f2328; background: #f6f8fa; }
+  .topbar { background: #0f2a44; color: #fff; padding: 14px 32px; display: flex; gap: 28px; align-items: center; }
+  .topbar b { font-size: 17px; letter-spacing: .2px; }
+  .topbar span { opacity: .8; font-size: 14px; }
+  .wrap { max-width: 780px; margin: 28px 0 40px 6vw; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; padding: 28px 36px; }
+  h1 { margin: 0 0 2px; font-size: 28px; }
+  .meta { color: #57606a; margin: 0 0 18px; }
+  .apply { display: inline-block; background: #1f6feb; color: #fff; padding: 8px 18px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-bottom: 8px; }
+  h3 { margin: 22px 0 6px; font-size: 17px; }
+  p { margin: 4px 0; }
+</style>
+</head>
+<body>
+<div class="topbar"><b>Acme Security</b><span>Platform</span><span>Customers</span><span>Partners</span><span>Careers</span></div>
+<main class="wrap">
+  <h1>Senior Solutions Engineer</h1>
+  <div class="meta">Acme Security &middot; Sales Engineering &middot; Full-time</div>
+  <a class="apply" href="#apply">Apply now</a>
+  <div class="job-description" id="job-description"></div>
+</main>
+
+<script>
+const params = new URLSearchParams(location.search);
+const CASE = params.get('case') || 'good';
+
+// A fictional company and posting, long enough to read like a real one.
+// Every sentence the canned extraction below quotes must stay word for word.
+const SECTIONS = {
+  about: 'About Acme Security\nAcme Security sells managed detection and response and firewall management to IT teams and MSPs across the country.\n' +
+    'Our analysts watch more than 40,000 customer environments around the clock, and our partners resell and co-manage the platform for thousands of small and mid-sized businesses.\n' +
+    'We are a team of practitioners: most of our engineers ran IT or security operations before they joined us.',
+  role: 'Role\nAs a Senior Solutions Engineer you will run technical discovery, deliver demos of our MDR platform, scope deployments with customers and support the account executives through the sales cycle.\n' +
+    'You will own the technical win for a book of mid-market accounts and MSP partners, from the first discovery call through the proof of value.\n' +
+    'You will build demo environments that mirror a customer\'s firewall, endpoint and identity stack, and turn what you hear in the field into feedback for product management.\n' +
+    'You will also run enablement sessions for partner engineers so they can position and deploy the platform on their own.',
+  loc: {
+    good: 'Location: Remote - United States\nThis role is fully remote and open to candidates anywhere in the United States.',
+    nopay: 'Location: Remote - United States\nThis role is fully remote and open to candidates anywhere in the United States.',
+    ote: 'Location: Remote - United States\nThis role is fully remote and open to candidates anywhere in the United States.',
+    hybrid: 'Location: Columbus, OH\nThis is a hybrid role with three days a week in our downtown Columbus office.',
+    territory: 'Location: Remote\nCandidates must reside in the Pacific Northwest territory.',
+  },
+  pay: {
+    good: 'Compensation\nThe base salary range for this role is $135,000 - $155,000 per year, plus bonus.',
+    nopay: '',
+    ote: 'Compensation\nThe compensation range for this role is between $150k-$175k OTE with a 75/25 base to commission split.',
+    hybrid: 'Compensation\nThe base salary range for this role is $120,000 - $130,000 per year.',
+    territory: 'Compensation\nThe base salary range for this role is $135,000 - $155,000 per year.',
+  },
+  travel: 'Travel\nUp to 10% travel to company events and occasional customer visits.',
+  req: 'Requirements\n3+ years of experience in pre-sales, sales engineering or a customer-facing technical role.\nExperience with firewalls, endpoint security and backup.\n' +
+    'Comfort explaining detection and response to both a CISO and a two-person IT team.\nSalesforce experience is a plus.\nCISSP preferred.',
+  benefits: 'Benefits\nMedical, dental and vision coverage starting on day one.\nA 401(k) with a company match, and an annual learning budget for certifications and conferences.\nFlexible time off and a home-office stipend.',
+  process: 'Interview process\nA conversation with the recruiter, a technical discussion with a solutions engineering manager, a demo you present to the team, and a final conversation with the sales leadership.',
+};
+
+const text = [SECTIONS.about, SECTIONS.role, SECTIONS.loc[CASE] || SECTIONS.loc.good, SECTIONS.pay[CASE] ?? SECTIONS.pay.good, SECTIONS.travel, SECTIONS.req, SECTIONS.benefits, SECTIONS.process]
+  .filter(Boolean).join('\n\n');
+const box = document.getElementById('job-description');
+text.split('\n\n').forEach((block) => {
+  const d = document.createElement('div');
+  block.split('\n').forEach((line, i) => {
+    const el = document.createElement(i === 0 ? 'h3' : 'p');
+    el.textContent = line;
+    d.appendChild(el);
+  });
+  box.appendChild(d);
+});
+
+/* ---- what Violentmonkey would provide ---- */
+const store = JSON.parse(localStorage.getItem('gm') || '{}');
+if (!('apikey.anthropic' in store)) store['apikey.anthropic'] = 'test-key';
+window.GM_getValue = (k, d) => (k in store ? store[k] : d);
+window.GM_setValue = (k, v) => { store[k] = v; localStorage.setItem('gm', JSON.stringify(store)); };
+window.GM_registerMenuCommand = (name, fn) => { (window.__menu = window.__menu || []).push(name); (window.__menuFns = window.__menuFns || {})[name] = fn; };
+window.GM_info = { script: { version: '2.1.0-harness' } };
+window.__calls = [];
+
+const f = (value, evidence, explanation) => ({ value, present: value !== null, evidence: evidence || null, explanation: explanation || 'from the posting' });
+
+function extraction() {
+  const base = {
+    title: f('Senior Solutions Engineer', 'Senior Solutions Engineer'),
+    company: f('Acme Security', 'Acme Security'),
+    work_arrangement: f('remote', 'fully remote'),
+    office_location: f(null),
+    eligibility_home: f('yes', 'open to candidates anywhere in the United States'),
+    eligibility_text: f('open to candidates anywhere in the United States', 'open to candidates anywhere in the United States'),
+    location_restriction: f('Remote - United States', 'Remote - United States'),
+    location_scope: f('us_wide', 'anywhere in the United States'),
+    base_min: f(135000, 'The base salary range for this role is $135,000 - $155,000 per year'),
+    base_max: f(155000, 'The base salary range for this role is $135,000 - $155,000 per year'),
+    base_source: f('stated'),
+    ote_min: f(null), ote_max: f(null),
+    pay_range_is_job_family_wide: f(false), pay_posted: f(true, '$135,000 - $155,000'),
+    role_type: f('presales', 'run technical discovery, deliver demos'),
+    quota_carrying: f(false),
+    years_required: f(3, '3+ years of experience in pre-sales'),
+    years_required_kind: f('presales_or_se', '3+ years of experience in pre-sales'),
+    buyer_persona: f('msp', 'IT teams and MSPs'),
+    product_name: f('MDR platform', 'managed detection and response'),
+    product_category: f('MDR / managed detection and response', 'managed detection and response'),
+    named_tools: { value: ['Salesforce'], evidence: ['Salesforce experience is a plus'] },
+    requirements: {
+      value: [
+        { text: '3+ years in pre-sales / sales engineering', kind: 'required' },
+        { text: 'Firewalls, endpoint security and backup', kind: 'required' },
+        { text: 'Salesforce', kind: 'preferred' },
+        { text: 'CISSP', kind: 'preferred' },
+      ],
+      evidence: [
+        '3+ years of experience in pre-sales, sales engineering or a customer-facing technical role',
+        'Experience with firewalls, endpoint security and backup',
+        'Salesforce experience is a plus',
+        'CISSP preferred',
+      ],
+    },
+    travel_percent: f(10, 'Up to 10% travel'),
+    travel_scope: f('other_region', 'company events and occasional customer visits'),
+    travel_purpose: f('both', 'company events and occasional customer visits'),
+    posted_days_ago: f(null), employer_type: f('direct'),
+    one_line_summary: f('Pre-sales SE for an MDR vendor selling to MSPs.'),
+  };
+  if (CASE === 'nopay') {
+    Object.assign(base, {
+      base_min: f(null), base_max: f(null), base_source: f('not_stated'), pay_posted: f(false),
+    });
+  }
+  if (CASE === 'ote') {
+    Object.assign(base, {
+      base_min: f(112500, '75/25 base to commission split'), base_max: f(131250, '75/25 base to commission split'),
+      base_source: f('derived_from_ote', '75/25 base to commission split', '75% of the $150k-$175k OTE'),
+      ote_min: f(150000, '$150k-$175k OTE'), ote_max: f(175000, '$150k-$175k OTE'),
+    });
+  }
+  if (CASE === 'hybrid') {
+    Object.assign(base, {
+      work_arrangement: f('hybrid_work', 'hybrid role with three days a week in our downtown Columbus office'),
+      office_location: f('Columbus, OH', 'Location: Columbus, OH'),
+      eligibility_home: f('unclear'), eligibility_text: f(null), location_scope: f('named_place', 'Columbus, OH'),
+      location_restriction: f('Columbus, OH', 'Columbus, OH'),
+      base_min: f(120000, 'The base salary range for this role is $120,000 - $130,000 per year'),
+      base_max: f(130000, 'The base salary range for this role is $120,000 - $130,000 per year'),
+    });
+  }
+  if (CASE === 'territory') {
+    Object.assign(base, {
+      eligibility_home: f('no', 'must reside in the Pacific Northwest territory'),
+      eligibility_text: f('must reside in the Pacific Northwest territory', 'must reside in the Pacific Northwest territory'),
+      location_scope: f('us_region', 'Pacific Northwest territory'), location_restriction: f('Pacific Northwest territory', 'Pacific Northwest territory'),
+    });
+  }
+  return base;
+}
+
+const FIT = {
+  items: [
+    { i: 0, meets: 'partial', note: 'Scopes projects and joins sales calls, no formal pre-sales title' },
+    { i: 1, meets: 'yes', note: 'Palo Alto firewalls and Veeam backup experience' },
+    { i: 2, meets: 'no', note: 'No Salesforce experience' },
+    { i: 3, meets: 'unknown', note: 'Profile lists no certifications' },
+  ],
+  summary: 'Strong technical match; the gaps are formal sales tooling and certifications.',
+};
+
+window.GM_xmlhttpRequest = (o) => {
+  const body = JSON.parse(o.data);
+  const isFit = body.system.indexOf('CANDIDATE PROFILE') !== -1;
+  window.__calls.push({ kind: isFit ? 'fit' : 'extract', model: body.model, bytes: o.data.length });
+  const json = JSON.stringify(isFit ? FIT : extraction());
+  // A real Messages API reply: a text block holding the JSON, ended normally.
+  setTimeout(() => o.onload({ status: 200, responseText: JSON.stringify({ content: [{ type: 'text', text: json }], stop_reason: 'end_turn' }) }), 250);
+};
+
+</script>
+<!-- a static tag, so pages served with Trusted Types (?csp=tt) can still load it -->
+<script src="/dist/JobScore.user.js"></script>
+</body>
+</html>
