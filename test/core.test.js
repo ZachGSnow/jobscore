@@ -866,10 +866,38 @@ test('33. the no-quote list only names fields that assert something', () => {
     pay_posted: { value: true },
   });
   const v = J.verifyEvidence(x, evidence, pageText);
-  assert.deepEqual(v.noQuote, [],
+  assert.deepEqual(v.noQuote, ['pay_posted'],
     'a summary, a fallback enum and a false boolean have nothing to quote');
-  assert.deepEqual(v.unquoted, ['pay_posted'], 'a deciding fact with no quote is scored as unknown instead');
-  assert.equal(v.x.pay_posted, false);
+  assert.deepEqual(v.unquoted, [], 'pay_posted decides no gate, so it is only listed');
+  assert.equal(v.x.pay_posted, true);
+});
+
+test('33c. an unquoted role, restriction, travel purpose or years kind cannot decide a gate', () => {
+  const pageText = 'Solutions Engineer at Acme. Run demos for IT buyers. 6 years of experience required.';
+  const { x, evidence } = J.normalizeExtraction({
+    title: { value: 'Customer Engineer', evidence: null },
+    role_type: { value: 'sales_ae_or_quota', evidence: null },
+    location_restriction: { value: 'Must reside in Texas', evidence: null },
+    travel_purpose: { value: 'customer', evidence: null },
+    years_required: { value: 6, evidence: '6 years of experience required' },
+    years_required_kind: { value: 'presales_or_se', evidence: null },
+  });
+  const v = J.verifyEvidence(x, evidence, pageText);
+  assert.deepEqual(v.unquoted.slice().sort(), ['location_restriction', 'role_type', 'travel_purpose', 'years_required_kind']);
+  assert.equal(v.x.role_type, null, 'unknown, not other');
+  assert.equal(v.x.location_restriction, null);
+  assert.equal(v.x.travel_purpose, null);
+  assert.equal(v.x.years_required_kind, 'none');
+  assert.equal(v.x.years_required, 6, 'the quoted number stands');
+
+  // The unquoted sales role no longer fails the Title gate; a non-standard
+  // title with an unknown role is asked about instead of failed.
+  const res = J.score(mk({ title: 'Field Technologist', page_title: 'Field Technologist', role_type: null }), cfg);
+  assert.equal(gateOf(res, 'Title').status, 'unknown');
+  assert.match(gateOf(res, 'Title').detail, /no quote for the role/);
+  assert.equal(gateOf(J.score(mk({ title: 'Field Technologist', page_title: 'Field Technologist', role_type: 'other' }), cfg), 'Title').status, 'fail', 'a quoted other role still fails a non-standard title');
+  // A quoted sales role still fails.
+  assert.equal(gateOf(J.score(mk({ role_type: 'sales_ae_or_quota' }), cfg), 'Title').status, 'fail');
 });
 
 test('33b. a deciding fact needs a quote: without one its gate falls to unknown, never pass or fail', () => {

@@ -18,7 +18,7 @@ It is built around the hard part of using an LLM for a decision: trusting what i
 says. So the model never decides anything. It **extracts facts**, each with a
 verbatim quote. Code **checks every quote against the page** and throws away any
 fact it cannot find, and a fact that decides a gate (pay, location, eligibility,
-travel, years, employer, quota) counts only with a quote. Then plain, tested code **judges the facts against your
+travel, years, employer, quota, role) counts only with a quote. Then plain, tested code **judges the facts against your
 settings**, which you edit in the panel.
 
 ```
