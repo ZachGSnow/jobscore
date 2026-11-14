@@ -147,6 +147,13 @@ function arm() {
   onMaybeChanged();
 }
 
+// Arm on a job page, unless this careers page embeds a listed board (the
+// posting then lives in the board's frame, which has its own panel).
+function wantsPanel(listed) {
+  if (!isWatchedUrl(location.href, get(settings))) return false;
+  return !(window.top === window.self && !listed && embedsListedBoard(document));
+}
+
 function boot() {
   const hostname = location.hostname;
   const listed = !!siteForUrl(location.href);
@@ -176,7 +183,7 @@ function boot() {
     // change the URL without a reload (LinkedIn's feed -> Jobs), so a move to
     // a job page arms it then.
     window.addEventListener('jobscore:locationchange', () => {
-      setTimeout(() => { if (!armed && isWatchedUrl(location.href, get(settings))) arm(); }, 400);
+      setTimeout(() => { if (!armed && wantsPanel(!!siteForUrl(location.href))) arm(); }, 400);
     });
     log('idle on this page (not a listed job page and the URL is not job-like). Alt+1 or menu -> "score this page" to score it anyway.');
   }

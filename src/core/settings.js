@@ -237,7 +237,6 @@ export function mergeSettings(saved, defaults, key) {
   }
   if (typeof base === 'boolean') return typeof saved === 'boolean' ? saved : base;
   if (typeof saved !== 'string') return base;
-  if (key === 'ollamaUrl') return isLocalOllamaUrl(saved.trim()) ? saved.trim() : base;
   const choices = choicesFor(key, base);
   if (!choices) return saved;
   const v = saved.trim().toLowerCase();
@@ -314,5 +313,9 @@ export function importSettings(text) {
   if (!isPlainObject(payload)) throw new Error('No settings object found in that text.');
   const known = Object.keys(DEFAULT_SETTINGS).filter((k) => k !== 'version' && k in payload);
   if (!known.length) throw new Error('No JobScore settings found in that text (expected a settings export or a backup file).');
-  return mergeSettings(payload);
+  const merged = mergeSettings(payload);
+  // A settings file can come from someone else: it may not point Ollama (and
+  // with it the posting text, your profile and any Ollama key) at another host.
+  if (!isLocalOllamaUrl(merged.model.ollamaUrl)) merged.model.ollamaUrl = DEFAULT_SETTINGS.model.ollamaUrl;
+  return merged;
 }

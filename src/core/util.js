@@ -108,11 +108,18 @@ export function safeHttpUrl(v) {
 }
 
 // Is this key event aimed at somewhere you type? Reads composedPath()[0], the
-// real element, because e.target is retargeted to a shadow root's host.
+// real element, because e.target is retargeted to a shadow root's host. A
+// CLOSED shadow root hides its inside even from that, so a custom element
+// (a tag with a hyphen) with no open shadow root that is the event's target
+// is assumed to be an input widget, as is anything with a text-entry ARIA role.
+const TYPING_ROLES = ['textbox', 'searchbox', 'combobox'];
 export function isTypingTarget(e) {
   const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
   const t = path[0] || e.target;
   if (!t) return false;
   const tag = String(t.tagName || '').toUpperCase();
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!t.isContentEditable;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return true;
+  const role = typeof t.getAttribute === 'function' ? String(t.getAttribute('role') || '').toLowerCase() : '';
+  if (TYPING_ROLES.includes(role)) return true;
+  return tag.includes('-') && !t.shadowRoot;
 }

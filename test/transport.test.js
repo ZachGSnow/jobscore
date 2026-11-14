@@ -92,9 +92,12 @@ test('Ollama: the URL must be on this machine, from an import or typed in', asyn
   assert.equal(J.isLocalOllamaUrl('file:///etc/passwd'), false);
 
   // An imported settings file cannot point it elsewhere.
-  const imported = J.mergeSettings({ model: { provider: 'ollama', ollamaUrl: 'https://evil.example/api/chat' } });
+  const imported = J.importSettings(JSON.stringify({ model: { provider: 'ollama', ollamaUrl: 'https://evil.example/api/chat' } }));
   assert.equal(imported.model.ollamaUrl, J.DEFAULT_SETTINGS.model.ollamaUrl);
-  assert.equal(J.mergeSettings({ model: { ollamaUrl: ' http://127.0.0.1:11500/api/chat ' } }).model.ollamaUrl, 'http://127.0.0.1:11500/api/chat');
+  assert.equal(J.importSettings(JSON.stringify({ model: { ollamaUrl: 'http://127.0.0.1:11500/api/chat' } })).model.ollamaUrl, 'http://127.0.0.1:11500/api/chat');
+  // A URL you saved yourself is never rewritten behind your back on load; a
+  // non-local one is refused with a message at request time (below).
+  assert.equal(J.mergeSettings({ model: { ollamaUrl: 'http://192.168.1.50:11434/api/chat' } }).model.ollamaUrl, 'http://192.168.1.50:11434/api/chat');
 
   // A URL typed into the panel is refused at request time, before anything is sent.
   J.setCurrentSettings(J.setPath(J.setPath(J.DEFAULT_SETTINGS, 'model.provider', 'ollama'), 'model.ollamaUrl', 'https://evil.example/api/chat'));
@@ -147,4 +150,25 @@ test('Retry-After is read as seconds or a date, and capped', () => {
   assert.equal(J.isRetryableStatus(502), true);
   assert.equal(J.isRetryableStatus(400), false);
   assert.equal(J.isRetryableStatus(404), false);
+});
+
+test('a retry tells the panel what it is waiting for', async () => {
+  const seen = [];
+  const onRetry = (e) => seen.push(e.detail.message);
+  const hadWindow = 'window' in globalThis;
+  if (!hadWindow) globalThis.window = new EventTarget();
+  globalThis.CustomEvent = globalThis.CustomEvent || class extends Event { constructor(t, o) { super(t); this.detail = o && o.detail; } };
+  window.addEventListener('jobscore:retry', onRetry);
+  const realSleep = J.timing.sleep;
+  J.timing.sleep = async () => {};
+  try {
+    responder = (body, n) => (n === 1 ? { status: 529, text: 'overloaded', headers: 'retry-after: 3' } : claude('{"ok":true}'));
+    await J.callLLM('sys', 'user');
+    assert.deepEqual(seen, ['Anthropic is busy (HTTP 529). Retry 1 of 2 in 3s...']);
+    assert.equal(J.retryMessage('OpenAI', 429, 8000, 2, 2), 'OpenAI is rate limiting. Retry 2 of 2 in 8s...');
+  } finally {
+    J.timing.sleep = realSleep;
+    window.removeEventListener('jobscore:retry', onRetry);
+    if (!hadWindow) delete globalThis.window;
+  }
 });

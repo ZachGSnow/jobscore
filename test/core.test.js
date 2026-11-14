@@ -1406,6 +1406,10 @@ test('64d. Alt+1 is left alone while you type, even inside a shadow root', () =>
   assert.equal(J.isTypingTarget(ev({ tagName: 'DIV', isContentEditable: true })), true);
   assert.equal(J.isTypingTarget(ev({ tagName: 'BODY' })), false);
   assert.equal(J.isTypingTarget({ target: { tagName: 'textarea' } }), true, 'no composedPath falls back to target');
+  // A closed shadow root shows only its host; a custom element with no open root is treated as an input.
+  assert.equal(J.isTypingTarget(ev({ tagName: 'SEARCH-BOX', shadowRoot: null })), true, 'closed shadow root');
+  assert.equal(J.isTypingTarget(ev({ tagName: 'APP-CARD', shadowRoot: {} })), false, 'an open root would have shown the real target');
+  assert.equal(J.isTypingTarget(ev({ tagName: 'DIV', getAttribute: (n) => (n === 'role' ? 'textbox' : null) })), true, 'ARIA textbox');
 });
 
 test('65. cheap gates fail a card on title, pay or place, and never on what the card does not show', () => {

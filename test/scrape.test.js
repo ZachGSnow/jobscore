@@ -161,6 +161,8 @@ test('policy: LinkedIn is listed on its /jobs/ pages only', () => {
   assert.equal(J.siteForUrl('https://www.linkedin.com/feed/'), null);
   assert.equal(J.siteForUrl('https://www.linkedin.com/in/someone/'), null);
   assert.equal(J.siteForUrl('https://www.linkedin.com/jobsearch-tips/'), null);
+  assert.equal(J.siteForUrl('https://www.linkedin.com/comm/jobs/view/4012345678/?trackingId=x').name, 'LinkedIn', 'job-alert email links');
+  assert.equal(J.siteForUrl('https://www.linkedin.com/comm/feed/'), null);
   // Boards without jobPaths are listed on every path; selectors still come from the host.
   assert.equal(J.siteForUrl('https://job-boards.greenhouse.io/acme/jobs/1').name, 'Greenhouse');
   assert.equal(J.siteFor('www.linkedin.com').name, 'LinkedIn');
