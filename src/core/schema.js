@@ -154,7 +154,7 @@ export const SCHEMA = [
       { path: 'model.anthropic', label: 'Anthropic model', type: 'text' },
       { path: 'model.openai', label: 'OpenAI model', type: 'text' },
       { path: 'model.ollama', label: 'Ollama model', type: 'text' },
-      { path: 'model.ollamaUrl', label: 'Ollama URL', type: 'url' },
+      { path: 'model.ollamaUrl', label: 'Ollama URL', type: 'url', help: 'Must be on this computer: localhost or 127.0.0.1.' },
     ],
   },
   {

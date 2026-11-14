@@ -81,3 +81,28 @@ test('any other 400 still fails with the provider message, after a single attemp
   await assert.rejects(() => J.callLLM('sys', 'user'), /HTTP 400.*not found/);
   assert.equal(sent.length, 1);
 });
+
+test('Ollama: the URL must be on this machine, from an import or typed in', async () => {
+  assert.equal(J.isLocalOllamaUrl('http://localhost:11434/api/chat'), true);
+  assert.equal(J.isLocalOllamaUrl('http://127.0.0.1:11434/api/chat'), true);
+  assert.equal(J.isLocalOllamaUrl('https://localhost:8443/api/chat'), true);
+  assert.equal(J.isLocalOllamaUrl('https://evil.example/api/chat'), false);
+  assert.equal(J.isLocalOllamaUrl('http://localhost.evil.example/api/chat'), false);
+  assert.equal(J.isLocalOllamaUrl('http://user:pw@localhost:11434/'), false);
+  assert.equal(J.isLocalOllamaUrl('file:///etc/passwd'), false);
+
+  // An imported settings file cannot point it elsewhere.
+  const imported = J.mergeSettings({ model: { provider: 'ollama', ollamaUrl: 'https://evil.example/api/chat' } });
+  assert.equal(imported.model.ollamaUrl, J.DEFAULT_SETTINGS.model.ollamaUrl);
+  assert.equal(J.mergeSettings({ model: { ollamaUrl: ' http://127.0.0.1:11500/api/chat ' } }).model.ollamaUrl, 'http://127.0.0.1:11500/api/chat');
+
+  // A URL typed into the panel is refused at request time, before anything is sent.
+  J.setCurrentSettings(J.setPath(J.setPath(J.DEFAULT_SETTINGS, 'model.provider', 'ollama'), 'model.ollamaUrl', 'https://evil.example/api/chat'));
+  keys['apikey.ollama'] = 'secret';
+  try {
+    await assert.rejects(J.callLLM('sys', 'user'), /must be on this computer/);
+    assert.equal(sent.length, 0, 'no request left the machine');
+  } finally {
+    delete keys['apikey.ollama'];
+  }
+});

@@ -194,6 +194,20 @@ export function setPath(obj, path, value) {
   return out;
 }
 
+// The Ollama URL may only point at this machine. The request carries the
+// posting text, your profile and any saved Ollama key, and a settings file can
+// come from someone else, so a URL elsewhere is never used. localhost and
+// 127.0.0.1 are also the only local hosts in the script's @connect list.
+export function isLocalOllamaUrl(v) {
+  try {
+    const u = new URL(String(v || ''));
+    return (u.protocol === 'http:' || u.protocol === 'https:') &&
+      (u.hostname === 'localhost' || u.hostname === '127.0.0.1') && !u.username && !u.password;
+  } catch (e) {
+    return false;
+  }
+}
+
 // String settings with a closed vocabulary, by key. A gate effect (onFail,
 // onUnknown, onStraddle ...) is any key starting with "on" whose default is an
 // effect. score() only counts the exact words, so "Skip" from a hand-edited
@@ -225,6 +239,7 @@ export function mergeSettings(saved, defaults, key) {
   }
   if (typeof base === 'boolean') return typeof saved === 'boolean' ? saved : base;
   if (typeof saved !== 'string') return base;
+  if (key === 'ollamaUrl') return isLocalOllamaUrl(saved.trim()) ? saved.trim() : base;
   const choices = choicesFor(key, base);
   if (!choices) return saved;
   const v = saved.trim().toLowerCase();
