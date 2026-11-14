@@ -171,6 +171,21 @@ export function normalizeExtraction(raw) {
    unverified value is treated as null for scoring.
    ====================================================================== */
 
+// The value an enum falls back to when the posting does not say. Sitting on it
+// is an absence, not an assertion.
+const ENUM_FALLBACK = {
+  work_arrangement: 'unclear', location_scope: 'unclear', role_type: 'other',
+  buyer_persona: 'other', years_required_kind: 'none', travel_scope: 'unspecified',
+  eligibility_home: 'unclear',
+};
+
+// Facts a gate turns into a pass or a fail. These need a quote to count.
+export const DECIDING_FIELDS = [
+  'base_min', 'base_max', 'ote_min', 'ote_max', 'pay_posted',
+  'eligibility_home', 'location_scope', 'work_arrangement',
+  'travel_percent', 'travel_scope', 'years_required', 'employer_type', 'quota_carrying',
+];
+
 export function verifyEvidence(x, evidence, haystack) {
   const hay = normQuote(haystack);
   const out = Object.assign({}, x);
@@ -193,6 +208,22 @@ export function verifyEvidence(x, evidence, haystack) {
     const quote = evidence[key];
     const ok = check(key, quote);
     if (!ok && key in out) out[key] = null;
+  }
+
+  // A fact that decides a gate needs a quote. One given with no quote at all is
+  // treated as not stated, so its gate falls to "unknown" (REVIEW, or a
+  // question for the recruiter) instead of passing or failing on the model's
+  // word alone. A false boolean or an enum on its fallback is the model
+  // declining to claim something, not a claim, so it is left alone.
+  const unquoted = [];
+  for (const key of DECIDING_FIELDS) {
+    if (status[key] !== 'missing' || !(key in out)) continue;
+    const v = out[key];
+    if (v === null || v === undefined || v === '' || v === false) continue;
+    if (Object.prototype.hasOwnProperty.call(ENUM_FALLBACK, key) && v === ENUM_FALLBACK[key]) continue;
+    out[key] = null;
+    status[key] = 'unquoted';
+    unquoted.push(key);
   }
 
   // Numbers / enums / booleans that were nulled need sane fallbacks.
@@ -255,11 +286,6 @@ export function verifyEvidence(x, evidence, haystack) {
   // fact. A summary has no source quote to give, a `false` boolean is the
   // model declining to claim something, and an enum sitting on its fallback
   // (unclear / other / none) is an absence rather than an assertion.
-  const ENUM_FALLBACK = {
-    work_arrangement: 'unclear', location_scope: 'unclear', role_type: 'other',
-    buyer_persona: 'other', years_required_kind: 'none', travel_scope: 'unspecified',
-    eligibility_home: 'unclear',
-  };
   const noQuote = Object.keys(status).filter((k) => {
     if (status[k] !== 'missing') return false;
     if (k === 'one_line_summary' || k === 'posted_days_ago') return false;
@@ -270,5 +296,5 @@ export function verifyEvidence(x, evidence, haystack) {
     if (Array.isArray(v) && v.length === 0) return false;
     return true;
   });
-  return { x: out, status, present, explanation, unverified, noQuote, droppedTools, droppedReqs };
+  return { x: out, status, present, explanation, unverified, unquoted, noQuote, droppedTools, droppedReqs };
 }

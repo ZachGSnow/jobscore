@@ -183,6 +183,7 @@ export function factCrossChecks(page, x, verification) {
   page = page || {};
   x = x || {};
   const unver = (verification && verification.unverified) || [];
+  const unquoted = (verification && verification.unquoted) || [];
   const body = String(page.body || '');
   const full = String(page.full_text || body);
   const blockers = [];
@@ -198,7 +199,9 @@ export function factCrossChecks(page, x, verification) {
       id: 'pay_not_extracted',
       message: onPage[0] && (unver.indexOf('base_min') !== -1 || unver.indexOf('base_max') !== -1)
         ? 'The captured text contains a base-pay figure ("' + onPage[0] + '") and the model read one, but its quote was not found in the page text, so the value was dropped as unverified. See the Unverified line below.'
-        : 'The captured text contains a base-pay figure ("' + onPage[0] + '") but no base pay was extracted.',
+        : (unquoted.indexOf('base_min') !== -1 || unquoted.indexOf('base_max') !== -1)
+          ? 'The captured text contains a base-pay figure ("' + onPage[0] + '") and the model read one, but gave no quote for it, so it was scored as not stated. Press Rescore.'
+          : 'The captured text contains a base-pay figure ("' + onPage[0] + '") but no base pay was extracted.',
     });
   }
 
