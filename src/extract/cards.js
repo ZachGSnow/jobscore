@@ -117,7 +117,10 @@ const LABEL_COLORS = {
   passed: '#7f8c8d', applied: '#1e9e57', todo: '#2d7ff9', new: '#c9930a',
 };
 export const CARD_CSS = [
-  '[data-jobscore-label]{position:relative !important}',
+  // The ::after label needs a positioned card to sit in. :where() has zero
+  // specificity and there is no !important, so a site that positions its cards
+  // itself (absolute rows in a virtualised list) keeps its layout.
+  ':where([data-jobscore-label]){position:relative}',
   '[data-jobscore-label]::after{content:attr(data-jobscore-label);position:absolute;right:10px;bottom:8px;z-index:5;' +
     'padding:2px 8px;border-radius:10px;font:600 11px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;' +
     'letter-spacing:.2px;color:#fff;background:#636e72;white-space:nowrap;pointer-events:none;box-shadow:0 1px 2px rgba(0,0,0,.25)}',

@@ -17,6 +17,10 @@ export const SITE_SELECTORS = [
     // One host for the feed, messages and profiles too, and the catch-all
     // @match loads the script on all of them. Only /jobs/ pages are listed.
     jobPaths: /^\/jobs(?:\/|$)/i,
+    // Never fall back to page-wide selectors: on the two-pane search page,
+    // <main> holds the results list, and a short or not-yet-rendered About
+    // section would let it win. Nothing found means "not loaded yet".
+    noGeneric: true,
     // paneFromDescription: the header is read inside the ancestor of the
     // posting that also holds the job link, so the left-hand results list can
     // never supply the title.
