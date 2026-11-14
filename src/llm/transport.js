@@ -1,6 +1,7 @@
 import { getv, setv } from '../core/gm.js';
 import { LIMITS, PROVIDERS } from '../core/config.js';
 import { getSettings, isLocalOllamaUrl, modelFor } from '../core/settings.js';
+import { log } from '../core/util.js';
 
 // API keys live in Violentmonkey storage, never in the settings blob, so an
 // exported settings file cannot leak one.
@@ -129,7 +130,7 @@ export function gmRequest(opts) {
       headers: opts.headers || {},
       data: opts.data,
       timeout: opts.timeout || LIMITS.REQUEST_TIMEOUT_MS,
-      onload: (r) => resolve({ status: r.status, text: r.responseText }),
+      onload: (r) => resolve({ status: r.status, text: r.responseText, headers: r.responseHeaders || '' }),
       onerror: () => reject(new Error('Network error talking to ' + safeHost(opts.url) + ' (is the host in @connect?)')),
       ontimeout: () => reject(new Error('Request to ' + safeHost(opts.url) + ' timed out after ' + Math.round((opts.timeout || LIMITS.REQUEST_TIMEOUT_MS) / 1000) + 's')),
       onabort: () => reject(new Error('Request aborted')),
@@ -143,9 +144,32 @@ export function httpErrorMessage(providerName, status, bodyText) {
   const snippet = String(bodyText || '').slice(0, 400).replace(/\s+/g, ' ');
   if (status === 401 || status === 403) return 'HTTP ' + status + ' - the API key was rejected for ' + providerName + '. Set it again in Settings > Model. ' + snippet;
   if (status === 404) return 'HTTP 404 - check the model name and API URL for ' + providerName + '. ' + snippet;
-  if (status === 429) return 'HTTP 429 - rate limited or out of credit. ' + snippet;
+  if (status === 429) return 'HTTP 429 - rate limited or out of credit, still after ' + RETRY_DELAYS_MS.length + ' retries. Wait a minute and press Rescore. ' + snippet;
+  if (status === 529 || status >= 500) return 'HTTP ' + status + ' - ' + providerName + ' is overloaded or having trouble, still after ' + RETRY_DELAYS_MS.length + ' retries. Try again shortly. ' + snippet;
   return 'HTTP ' + status + ' from ' + providerName + ': ' + snippet;
 }
+
+// Rate limits (429) and server trouble (5xx, Anthropic's 529 "overloaded")
+// usually pass in seconds, so they are retried before the score fails.
+export const RETRY_DELAYS_MS = [2000, 8000];
+const RETRY_AFTER_MAX_MS = 30000;
+export function isRetryableStatus(status) {
+  return status === 429 || status === 529 || (status >= 500 && status <= 599);
+}
+
+// The server's own Retry-After (seconds or an HTTP date) wins when it is sane.
+export function retryDelayMs(headers, attempt, now) {
+  const m = /^retry-after:\s*(.+)$/im.exec(String(headers || ''));
+  if (m) {
+    const v = m[1].trim();
+    const secs = /^\d+(\.\d+)?$/.test(v) ? Number(v) * 1000 : Date.parse(v) - (now || Date.now());
+    if (Number.isFinite(secs) && secs >= 0) return Math.min(secs, RETRY_AFTER_MAX_MS);
+  }
+  return RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
+}
+
+// Swapped out by the tests so retries do not really wait.
+export const timing = { sleep: (ms) => new Promise((r) => setTimeout(r, ms)) };
 
 export async function callLLM(systemPrompt, userPrompt, opts) {
   const settings = getSettings();
@@ -167,9 +191,18 @@ export async function callLLM(systemPrompt, userPrompt, opts) {
   const flags = { temperature: !!p.sendsTemperature, prefill: true };
   let req;
   let res;
+  let transient = 0;
   for (let attempt = 0; attempt < 3; attempt++) {
     req = buildHttpRequest(providerName, { key, model, url, maxTokens: opts && opts.maxTokens, temperature: flags.temperature, prefill: flags.prefill }, systemPrompt, userPrompt);
     res = await gmRequest({ method: 'POST', url: req.url, headers: req.headers, data: JSON.stringify(req.body) });
+    if (isRetryableStatus(res.status) && transient < RETRY_DELAYS_MS.length) {
+      const wait = retryDelayMs(res.headers, transient);
+      transient++;
+      attempt--;                       // a transient failure does not use up a parameter retry
+      log('HTTP ' + res.status + ' from ' + p.label + ', retrying in ' + Math.round(wait / 1000) + 's');
+      await timing.sleep(wait);
+      continue;
+    }
     if (res.status !== 400) break;
     const body = String(res.text || '');
     if (flags.temperature && /temperature/i.test(body)) { flags.temperature = false; continue; }

@@ -13,7 +13,7 @@ globalThis.GM_xmlhttpRequest = (o) => {
   const body = JSON.parse(o.data);
   sent.push(body);
   const r = responder(body, sent.length);
-  setTimeout(() => o.onload({ status: r.status, responseText: r.text }), 0);
+  setTimeout(() => o.onload({ status: r.status, responseText: r.text, responseHeaders: r.headers || '' }), 0);
 };
 const J = await import('../src/all.js');
 
@@ -105,4 +105,46 @@ test('Ollama: the URL must be on this machine, from an import or typed in', asyn
   } finally {
     delete keys['apikey.ollama'];
   }
+});
+
+test('rate limits and server errors are retried with a backoff, then said plainly', async () => {
+  const waits = [];
+  const realSleep = J.timing.sleep;
+  J.timing.sleep = async (ms) => { waits.push(ms); };
+  try {
+    // 429 then 529 then success: two quiet retries, the second honouring Retry-After.
+    responder = (body, n) => (n === 1 ? { status: 429, text: 'slow down' }
+      : n === 2 ? { status: 529, text: 'overloaded', headers: 'content-type: application/json\r\nretry-after: 5\r\n' }
+        : claude('{"ok":true}'));
+    assert.equal((await J.callLLM('sys', 'user')).text, '{"ok":true}');
+    assert.equal(sent.length, 3);
+    assert.deepEqual(waits, [J.RETRY_DELAYS_MS[0], 5000]);
+
+    // Still failing after the retries: one clear message, no endless loop.
+    sent.length = 0; waits.length = 0;
+    responder = () => ({ status: 503, text: 'unavailable' });
+    await assert.rejects(() => J.callLLM('sys', 'user'), /HTTP 503 .*overloaded or having trouble, still after 2 retries/);
+    assert.equal(sent.length, 1 + J.RETRY_DELAYS_MS.length);
+
+    // A 4xx that is not a rate limit is never retried.
+    sent.length = 0;
+    responder = () => ({ status: 401, text: 'bad key' });
+    await assert.rejects(() => J.callLLM('sys', 'user'), /API key was rejected/);
+    assert.equal(sent.length, 1);
+  } finally {
+    J.timing.sleep = realSleep;
+  }
+});
+
+test('Retry-After is read as seconds or a date, and capped', () => {
+  assert.equal(J.retryDelayMs('retry-after: 3', 0), 3000);
+  assert.equal(J.retryDelayMs('Retry-After: 600', 0), 30000, 'capped at 30 s');
+  assert.equal(J.retryDelayMs('retry-after: Wed, 21 Oct 2026 07:28:10 GMT', 0, Date.parse('Wed, 21 Oct 2026 07:28:00 GMT')), 10000);
+  assert.equal(J.retryDelayMs('', 1), J.RETRY_DELAYS_MS[1]);
+  assert.equal(J.retryDelayMs('retry-after: soon', 0), J.RETRY_DELAYS_MS[0]);
+  assert.equal(J.isRetryableStatus(429), true);
+  assert.equal(J.isRetryableStatus(529), true);
+  assert.equal(J.isRetryableStatus(502), true);
+  assert.equal(J.isRetryableStatus(400), false);
+  assert.equal(J.isRetryableStatus(404), false);
 });
