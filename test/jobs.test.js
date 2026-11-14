@@ -330,3 +330,14 @@ test('outreach: LinkedIn people searches are plain links built from the company 
   assert.equal(J.peopleSearchUrls('', 'Sales Engineer'), null, 'no company, nothing to search');
   assert.match(J.jobsToCsv({ a: Object.assign(J.blankJob('a'), { reachedOutAt: '2026-10-12T12:00:00.000Z' }) }), /Reached Out/);
 });
+
+test('re-judging a job after a settings change is not another visit', () => {
+  const day = 86400000;
+  const t0 = Date.parse('2026-11-01T12:00:00.000Z');
+  let jobs = J.upsertJob({}, { id: 'x', url: 'https://jobs.lever.co/acme/1', company: 'Acme', title: 'SE', verdict: 'APPLY' }, t0).jobs;
+  const later = J.upsertJob(jobs, { id: 'x', url: 'https://jobs.lever.co/acme/1', company: 'Acme', title: 'SE', verdict: 'SKIP' }, t0 + day, { sighting: false }).jobs;
+  assert.equal(later.x.seenCount, 1);
+  assert.equal(later.x.lastSeen, jobs.x.lastSeen);
+  assert.equal(later.x.verdict, 'SKIP', 'the verdict still follows');
+  assert.equal(J.upsertJob(jobs, { id: 'x', url: 'https://jobs.lever.co/acme/1', company: 'Acme', title: 'SE', verdict: 'SKIP' }, t0 + day).jobs.x.seenCount, 2, 'a real visit still counts');
+});
