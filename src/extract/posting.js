@@ -134,7 +134,7 @@ export function extractPosting(doc, win) {
 
   // 1. The description: the candidate that actually reads like a whole
   //    posting, so a results-list card snippet cannot win over the open one.
-  let desc = root ? pickDescription(root, site, { noGeneric: strict }) : null;
+  let desc = root ? pickDescription(root, site, { noGeneric: strict || !!(site && site.noGeneric) }) : null;
   // 2. Scope the header fields to the details pane derived from that node.
   let pane = null;
   if (strict) pane = paneRoot;

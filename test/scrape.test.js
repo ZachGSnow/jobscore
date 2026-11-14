@@ -415,6 +415,35 @@ test('LinkedIn search page: the open pane gives header, location with workplace 
   assert.ok(!J.coverageReport(page).blockers.some((b) => b.id === 'collapsed'), 'the fold is styling, not a cut posting');
 });
 
+test('LinkedIn: a short or unrendered About section never falls back to the whole page (the results list)', () => {
+  // A results list that reads like a posting: long, with pay, location and experience words.
+  const results = '<main><ul>' + Array.from({ length: 25 }, (_, i) =>
+    `<li><a href="/jobs/view/${100 + i}/">Sales Engineer ${i}</a><p>Remote. $150,000 - $180,000 a year. 5+ years experience. Responsibilities include demos.</p></li>`).join('') + '</ul>';
+  const aboutText = 'Solutions Engineer for our MDR platform. Remote in the US. Run discovery and demos with prospects. ' +
+    'Base pay $140,000 - $160,000. You will work with account executives on security evaluations, build proof-of-concept ' +
+    'labs, and answer technical questions from IT teams and MSP partners. Three years of customer-facing technical work required.';
+  const shortAbout = `<div id="JobDetails_AboutTheJob_4479560761"><h2>About the job</h2>
+    <span data-testid="expandable-text-box">${aboutText}</span></div>`;
+  set(results + `<section>${linkedinHeaderHtml({ titleLink: true })}${shortAbout}</section></main>`);
+  const url = 'https://www.linkedin.com/jobs/search-results/?currentJobId=4479560761';
+  const page = J.extractPosting(document, win(url));
+  assert.equal(page.selector_used, '[id^="JobDetails_AboutTheJob_"]', 'the short About section, not <main>');
+  assert.doesNotMatch(page.body, /Sales Engineer 7/, 'no results-list text');
+
+  // The pane has not rendered yet: nothing is captured, so auto-score waits.
+  set(results + '</main>');
+  const empty = J.extractPosting(document, win(url));
+  assert.ok(empty.body_length < J.LIMITS.MIN_DESC_CHARS, 'not the results list');
+  assert.notEqual(J.autoScoreBlocker(empty, J.DEFAULT_SETTINGS), '');
+});
+
+test('card labels never override how the page positions a card', () => {
+  const css = J.CARD_CSS || '';
+  assert.match(css, /:where\(\[data-jobscore-label\]\)\{position:relative\}/, 'still positioned when the site says nothing');
+  assert.ok(css.length > 0);
+  assert.doesNotMatch(css, /position\s*:\s*relative\s*!important/);
+});
+
 test('LinkedIn single job page: plain-text title, and similar-jobs links below the posting do not hide the header', () => {
   set(`
     <main id="workspace"><section aria-label="Primary content"><div>
