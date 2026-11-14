@@ -22,7 +22,6 @@ export const LIMITS = {
   MAX_FULL_CHARS: 20000,
   CACHE_TTL_DAYS: 14,
   CACHE_MAX_ENTRIES: 80,
-  LOG_MAX: 200,
   DEBOUNCE_MS: 1200,         // SPA / DOM settle time before asking the API
   REQUEST_TIMEOUT_MS: 180000,  // one non-streaming reply of up to 16000 tokens, thinking included
   PROMPT_PROFILE_MAX_WORDS: 200,

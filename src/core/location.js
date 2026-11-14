@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS } from './settings.js';
-import { norm, str } from './util.js';
+import { escapeRegExp, norm, str } from './util.js';
 
 function homeOf(cfg) {
   return (cfg && cfg.home) || DEFAULT_SETTINGS.home;
@@ -77,7 +77,6 @@ export function homeLabel(cfg) {
   return str(homeOf(cfg).region) || 'your area';
 }
 
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // A place you can commute to. Narrower than mentionsHomeRegion: a state is a
 // territory you may live in, a city across that state is not a commute.
@@ -100,7 +99,7 @@ export function inHomeMetro(text, cfg) {
 export function locationExcludesHome(text, cfg) {
   const t = str(text);
   if (!t) return false;
-  const words = homeAliases(cfg).map((a) => escapeRe(a).replace(/\s+/g, '\\s+'));
+  const words = homeAliases(cfg).map((a) => escapeRegExp(a).replace(/\s+/g, '\\s+'));
   if (words.length) {
     const negated = new RegExp('(?:^|[^a-z])(not|no|outside(?:\\s+of)?|excluding|except|other than)(?![a-z])[^.;]{0,60}?(' + words.join('|') + ')(?![a-z])', 'i');
     if (negated.test(t)) return true;

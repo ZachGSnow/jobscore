@@ -167,8 +167,6 @@ export const DEFAULT_SETTINGS = {
   },
 };
 
-// Aliases used by older code paths and by tests: the gate ids in display order.
-export const GATE_IDS = ['title', 'location', 'travel', 'pay', 'experience', 'product', 'employer', 'language', 'clearance'];
 
 /* ---------------------------------------------------------------- helpers */
 

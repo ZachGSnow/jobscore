@@ -4,13 +4,12 @@ import { get } from 'svelte/store';
 import { log } from './core/util.js';
 import { modelFor } from './core/settings.js';
 import { CARD_SELECTOR } from './extract/cards.js';
-import { cleanNodeText } from './extract/dom.js';
+import { cleanNodeText, safeQueryAll } from './extract/dom.js';
 import { cssPathOf, rankDescriptionCandidates } from './extract/debugtools.js';
 import { extractPosting } from './extract/posting.js';
 import { coverageReport, extractionWarnings, pageFullText } from './extract/coverage.js';
 import { shouldAutoScore } from './extract/policy.js';
 import { siteFor } from './extract/sites.js';
-import { safeQueryAll } from './extract/dom.js';
 import { host } from './ui/host.js';
 import { copyText, session, settings, ui } from './ui/state.js';
 
