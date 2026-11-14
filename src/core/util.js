@@ -76,3 +76,29 @@ export function clip(s, n) {
   const t = String(s || '').replace(/\s+/g, ' ').trim();
   return t.length > n ? t.slice(0, n - 1) + '\u2026' : t;
 }
+
+// Query parameters that only say how you got to a posting, never which posting
+// it is. Whole names, so positionId, startDate or sourceId survive; only the
+// utm_ / mc_ / _hs / trk families are matched by prefix. gh_jid is NOT here: it
+// is the job id on an embedded Greenhouse board (acme.com/careers?gh_jid=123).
+export const TRACKING_PARAMS = /^(?:(?:utm_|mc_|_hs|trk)\w*|trackingId|refId|gh_src|src|source|from|fbclid|gclid|campaignId|recommendedFlavor|position|pageNum|start)$/i;
+
+// Removes the hash and every tracking parameter, in place.
+export function stripTracking(u) {
+  u.hash = '';
+  for (const k of Array.from(u.searchParams.keys())) {
+    if (TRACKING_PARAMS.test(k)) u.searchParams.delete(k);
+  }
+  return u;
+}
+
+// An http(s) link, or '' for anything else (javascript:, data:, junk), so a
+// URL from an imported backup is safe to put in an href.
+export function safeHttpUrl(v) {
+  try {
+    const u = new URL(String(v || ''));
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : '';
+  } catch (e) {
+    return '';
+  }
+}

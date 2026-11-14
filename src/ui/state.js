@@ -148,16 +148,46 @@ export const jobs = writable(initialJobs);
 export const meta = writable(loadMeta());
 
 let jobsReady = false;
+let syncing = false;   // true while showing what storage already holds: nothing to write back
 jobs.subscribe((j) => {
   if (!jobsReady) return;
-  saveJobs(j);
+  if (!syncing) saveJobs(j);
   queueMicrotask(scanCardsSafe);
 });
-meta.subscribe((m) => { if (jobsReady) saveMeta(m); });
+meta.subscribe((m) => { if (jobsReady && !syncing) saveMeta(m); });
 jobsReady = true;
 
+// Every tab holds its own copy of the tracker, and every save writes the whole
+// map. So a change starts from what is in storage NOW, not from this tab's
+// copy, or a tab opened earlier would undo what a newer tab saved (an
+// Applied status, a note) the next time it scored anything.
+function editJobs(fn) {
+  jobs.set(fn(loadJobs()));
+}
+
+// Show what other tabs saved when this one comes back into view. Settings are
+// one blob edited in place, so they are refreshed here too, before you can
+// change one from a stale copy.
+function syncFromStorage() {
+  syncing = true;
+  try {
+    jobs.set(loadJobs());
+    meta.set(loadMeta());
+  } finally {
+    syncing = false;
+  }
+  const stored = loadSettings();
+  if (JSON.stringify(stored) !== JSON.stringify(get(settings))) settings.set(stored);
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncFromStorage();
+  });
+}
+
 function bump(n) {
-  meta.update((m) => Object.assign({}, m, { changesSince: m.changesSince + (n || 1) }));
+  const m = loadMeta();
+  meta.set(Object.assign({}, m, { changesSince: m.changesSince + (n || 1) }));
 }
 
 let seenFor = null;
@@ -168,7 +198,7 @@ let seenData = null;
 // then records it.
 function trackScore(out) {
   const entry = logEntryFor(out);
-  const before = get(jobs);
+  const before = loadJobs();   // what storage holds now, not this tab's copy (see editJobs)
   if (seenFor !== entry.id) {
     const dup = dupKeyFor(entry.company, entry.title);
     const found = findSeen(before, entry.id, dup);
@@ -189,19 +219,19 @@ function trackScore(out) {
 }
 
 export function jobSetStatus(id, status) {
-  jobs.update((j) => setStatus(j, id, status, Date.now(), get(settings).tracker));
+  editJobs((j) => setStatus(j, id, status, Date.now(), get(settings).tracker));
   bump(1);
 }
 export function jobPatch(id, patch) {
-  jobs.update((j) => patchJob(j, id, patch, Date.now()));
+  editJobs((j) => patchJob(j, id, patch, Date.now()));
   bump(1);
 }
 export function jobReachedOut(id, on) {
-  jobs.update((j) => patchJob(j, id, { reachedOutAt: on === false ? null : dayString(Date.now()) }, Date.now()));
+  editJobs((j) => patchJob(j, id, { reachedOutAt: on === false ? null : dayString(Date.now()) }, Date.now()));
   bump(1);
 }
 export function jobDelete(id) {
-  jobs.update((j) => removeJob(j, id));
+  editJobs((j) => removeJob(j, id));
   bump(1);
 }
 export function jobsClearAll() {
@@ -259,7 +289,7 @@ export function importBackupText(text, mode, withSettings) {
     jobs.set(parsed.jobs);
     bump(Object.keys(parsed.jobs).length);
   } else {
-    const merged = mergeJobs(get(jobs), parsed.jobs);
+    const merged = mergeJobs(loadJobs(), parsed.jobs);
     jobs.set(merged.jobs);
     bump(merged.added + merged.updated);
     toast(merged.added + ' added, ' + merged.updated + ' updated');
@@ -354,7 +384,7 @@ export function rescoreFromSettings() {
     // The record follows the new verdict (an automatic status moves with it).
     const id = get(session).jobId;
     if (id) {
-      jobs.update((j) => (j[id] ? upsertJob(j, Object.assign(logEntryFor(out), { id: id }), Date.now()).jobs : j));
+      editJobs((j) => (j[id] ? upsertJob(j, Object.assign(logEntryFor(out), { id: id }), Date.now()).jobs : j));
     }
     loadFit();
   }
@@ -382,7 +412,7 @@ export async function loadFit() {
     const id = get(session).jobId;
     if (id && data && Array.isArray(data.items)) {
       const strengths = data.items.filter((i) => i.meets === 'yes' && i.note).slice(0, 3).map((i) => i.note);
-      jobs.update((j) => (j[id] ? Object.assign({}, j, { [id]: Object.assign({}, j[id], { strengths: strengths }) }) : j));
+      editJobs((j) => (j[id] ? Object.assign({}, j, { [id]: Object.assign({}, j[id], { strengths: strengths }) }) : j));
     }
   } catch (e) {
     if (token !== fitToken) return;

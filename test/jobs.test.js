@@ -133,6 +133,30 @@ test('the same job on another site is matched by company and title', () => {
   assert.notEqual(J.dupKeyFor('Wasabi', 'Sales Engineer'), J.dupKeyFor('Wasabi', 'Solutions Architect'));
 });
 
+test('a backup from someone else cannot plant a script link or crash the panel', () => {
+  const text = JSON.stringify({
+    jobscore: 'backup',
+    jobs: [
+      { id: 'a', url: 'javascript:alert(document.cookie)', appliedAt: 20261101, company: 7, title: null, status: 'applied' },
+      { id: 'b', url: ' data:text/html,<b>x</b>', lastSeen: { x: 1 } },
+      { id: 'c', url: 'https://jobs.lever.co/acme/1', appliedAt: '2026-11-01T12:00:00.000Z' },
+    ],
+  });
+  const { jobs } = J.parseBackup(text);
+  assert.equal(jobs.a.url, '', 'javascript: is dropped');
+  assert.equal(jobs.b.url, '', 'data: is dropped');
+  assert.equal(jobs.c.url, 'https://jobs.lever.co/acme/1');
+  assert.equal(jobs.a.appliedAt, null, 'a non-string date is dropped');
+  assert.equal(jobs.b.lastSeen, null);
+  assert.equal(jobs.c.appliedAt, '2026-11-01T12:00:00.000Z');
+  assert.equal(jobs.a.company, '7');
+  assert.equal(jobs.a.title, '');
+  assert.equal(jobs.a.status, 'applied');
+  assert.equal(J.safeHttpUrl('http://example.com/x'), 'http://example.com/x');
+  assert.equal(J.safeHttpUrl('JavaScript:void(0)'), '');
+  assert.equal(J.safeHttpUrl(null), '');
+});
+
 test('links reopen the posting, not the search page', () => {
   assert.equal(J.permalinkFor('https://www.indeed.com/jobs?q=se&l=Remote&vjk=665ea0b27f9c11a1&start=10'), 'https://www.indeed.com/viewjob?jk=665ea0b27f9c11a1');
   assert.equal(J.permalinkFor('https://www.linkedin.com/jobs/search/?keywords=se&currentJobId=4012345678&position=1'), 'https://www.linkedin.com/jobs/view/4012345678/');

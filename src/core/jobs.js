@@ -5,7 +5,7 @@
 // A record is the durable memory of one posting: what it was, what JobScore
 // said, and what YOU did about it. It holds compact facts only, never the
 // posting text.
-import { clip, norm, str } from './util.js';
+import { clip, norm, safeHttpUrl, str, stripTracking } from './util.js';
 
 /* ----------------------------------------------------------------- statuses */
 
@@ -108,11 +108,7 @@ export function permalinkFor(url) {
       const id = u.searchParams.get('currentJobId') || (u.pathname.match(/\/jobs\/view\/(\d{6,})/) || [])[1];
       if (id) return u.origin + '/jobs/view/' + id + '/';
     }
-    u.hash = '';
-    for (const k of Array.from(u.searchParams.keys())) {
-      if (/^(utm_|trk|trackingId|refId|gh_src|fbclid|gclid|mc_|_hs|campaignId|recommendedFlavor|position|pageNum|start|from|source|src)/i.test(k)) u.searchParams.delete(k);
-    }
-    return u.toString();
+    return stripTracking(u).toString();
   } catch (e) {
     return String(url || '');
   }
@@ -408,6 +404,13 @@ export function buildBackup(settings, jobs, now) {
 export function cleanRecord(raw) {
   if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !raw.id) return null;
   const j = Object.assign(blankJob(raw.id), raw);
+  // A record can come from a backup file someone else wrote: links must be
+  // http(s) to reach an href, and dates must be strings the panel can slice.
+  j.url = safeHttpUrl(j.url);
+  for (const k of ['firstSeen', 'lastSeen', 'statusAt', 'appliedAt', 'reachedOutAt', 'updatedAt']) {
+    if (typeof j[k] !== 'string' || !j[k]) j[k] = null;
+  }
+  for (const k of ['company', 'title', 'location', 'site', 'reason']) j[k] = String(j[k] == null ? '' : j[k]);
   if (!STATUS_IDS.includes(j.status)) j.status = 'new';
   j.statusBy = j.statusBy === 'user' ? 'user' : 'auto';
   j.flags = Array.isArray(j.flags) ? j.flags.map(String) : [];
