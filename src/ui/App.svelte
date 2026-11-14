@@ -14,6 +14,15 @@
 
   const result = $derived($session.result);
   const status = $derived($session.status);
+
+  // "Retry 1 of 2 in 8s..." while the provider is rate limiting or busy.
+  let retryNote = $state('');
+  $effect(() => {
+    const onRetry = (e) => { retryNote = (e.detail && e.detail.message) || ''; };
+    window.addEventListener('jobscore:retry', onRetry);
+    return () => window.removeEventListener('jobscore:retry', onRetry);
+  });
+  $effect(() => { if (status !== 'loading') retryNote = ''; });
   const due = $derived(dueJobs($jobs, Date.now()).length);
   const max = $derived($ui.maximized && !$ui.collapsed);
 
@@ -79,6 +88,7 @@
         <JobsView />
       {:else if status === 'loading'}
         <div>Scoring this posting...</div>
+        {#if retryNote}<div class="meta" style="margin-top:6px">{retryNote}</div>{/if}
       {:else if status === 'halted'}
         <HaltedView />
       {:else if status === 'error'}

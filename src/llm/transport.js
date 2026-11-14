@@ -171,6 +171,17 @@ export function retryDelayMs(headers, attempt, now) {
 // Swapped out by the tests so retries do not really wait.
 export const timing = { sleep: (ms) => new Promise((r) => setTimeout(r, ms)) };
 
+// The panel shows this under "Scoring this posting...", so a wait for a busy
+// provider does not look like a hang.
+export function retryMessage(label, status, waitMs, n, of) {
+  const why = status === 429 ? 'is rate limiting' : 'is busy (HTTP ' + status + ')';
+  return label + ' ' + why + '. Retry ' + n + ' of ' + of + ' in ' + Math.max(1, Math.round(waitMs / 1000)) + 's...';
+}
+function announceRetry(label, status, waitMs, n, of) {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
+  window.dispatchEvent(new CustomEvent('jobscore:retry', { detail: { message: retryMessage(label, status, waitMs, n, of) } }));
+}
+
 export async function callLLM(systemPrompt, userPrompt, opts) {
   const settings = getSettings();
   const providerName = settings.model.provider;
@@ -200,6 +211,7 @@ export async function callLLM(systemPrompt, userPrompt, opts) {
       transient++;
       attempt--;                       // a transient failure does not use up a parameter retry
       log('HTTP ' + res.status + ' from ' + p.label + ', retrying in ' + Math.round(wait / 1000) + 's');
+      announceRetry(p.label, res.status, wait, transient, RETRY_DELAYS_MS.length);
       await timing.sleep(wait);
       continue;
     }

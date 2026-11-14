@@ -15,8 +15,9 @@ export const SITE_SELECTORS = [
     match: /(^|\.)linkedin\.com$/i,
     name: 'LinkedIn',
     // One host for the feed, messages and profiles too, and the catch-all
-    // @match loads the script on all of them. Only /jobs/ pages are listed.
-    jobPaths: /^\/jobs(?:\/|$)/i,
+    // @match loads the script on all of them. Only job pages are listed:
+    // /jobs/..., and /comm/jobs/view/<id>/ where job-alert emails land.
+    jobPaths: /^\/(?:comm\/)?jobs(?:\/|$)/i,
     // Never fall back to page-wide selectors: on the two-pane search page,
     // <main> holds the results list, and a short or not-yet-rendered About
     // section would let it win. Nothing found means "not loaded yet".
