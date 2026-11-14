@@ -387,7 +387,8 @@ built file for both, so the problem cannot come back unnoticed.
 `http://localhost:5179/jobs/x?case=good|nopay|hybrid|territory|ote` that provides
 fake GM storage and a canned model reply, so the real bundle and panel can be
 exercised with no API key and no Violentmonkey. Add `&csp=tt` to forbid HTML strings
-the way Google does, or `&csp=linkedin` to apply LinkedIn's exact policy.
+the way Google does, or `&csp=linkedin` to apply LinkedIn's exact policy. The server
+listens on 127.0.0.1 only and never serves a file outside the repo.
 
 **Changing the extraction.** Bump `SCHEMA_VERSION` in `src/core/config.js` when the
 schema, the extraction prompt, or the page scrape changes; that discards cached
