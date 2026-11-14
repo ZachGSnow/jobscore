@@ -179,11 +179,13 @@ const ENUM_FALLBACK = {
   eligibility_home: 'unclear',
 };
 
-// Facts a gate turns into a pass or a fail. These need a quote to count.
+// Facts a gate turns into a pass or a fail (src/core/gates.js reads each of
+// them). These need a quote to count. pay_posted is not here: no gate reads it.
 export const DECIDING_FIELDS = [
-  'base_min', 'base_max', 'ote_min', 'ote_max', 'pay_posted',
-  'eligibility_home', 'location_scope', 'work_arrangement',
-  'travel_percent', 'travel_scope', 'years_required', 'employer_type', 'quota_carrying',
+  'base_min', 'base_max', 'ote_min', 'ote_max',
+  'eligibility_home', 'location_scope', 'location_restriction', 'work_arrangement',
+  'travel_percent', 'travel_scope', 'travel_purpose', 'years_required', 'years_required_kind',
+  'employer_type', 'quota_carrying', 'role_type',
 ];
 
 export function verifyEvidence(x, evidence, haystack) {
@@ -229,7 +231,9 @@ export function verifyEvidence(x, evidence, haystack) {
   // Numbers / enums / booleans that were nulled need sane fallbacks.
   if (out.work_arrangement === null) out.work_arrangement = 'unclear';
   if (out.location_scope === null) out.location_scope = 'unclear';
-  if (out.role_type === null) out.role_type = 'other';
+  // An unquoted role stays null ("unknown"), not 'other': the Title gate asks
+  // instead of failing a non-standard title on the model's silence.
+  if (out.role_type === null && !unquoted.includes('role_type')) out.role_type = 'other';
   if (out.buyer_persona === null) out.buyer_persona = 'other';
   if (out.years_required_kind === null) out.years_required_kind = 'none';
   if (out.travel_scope === null) out.travel_scope = 'unspecified';

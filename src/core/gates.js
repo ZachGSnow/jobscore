@@ -144,6 +144,13 @@ export function titleGate(x, cfg) {
   }
 
   if (T.useModelRole) {
+    if (x.role_type === null) {
+      // The model gave a role with no quote, so it was scored as unknown.
+      return gate('Title', 'unknown', 'Title "' + title + '" is not a standard pre-sales title, and the model gave no quote for the role', title, {
+        kind: 'ambiguous_title',
+        ask: ['Is this seat pre-sales (supporting a sales team), or an internal engineering role?'],
+      });
+    }
     if (role === 'presales') {
       const g = gate('Title', 'pass', 'Title "' + title + '" is not a standard pre-sales title, but the model reads the role as pre-sales', title);
       g.soft.push({ effect: 'flag', text: 'Unusual title for a pre-sales role - confirm what the seat actually does' });
