@@ -3,7 +3,7 @@
 import { get } from 'svelte/store';
 import { LIMITS } from './core/config.js';
 import { modelFor } from './core/settings.js';
-import { debounce, log } from './core/util.js';
+import { debounce, isTypingTarget, log } from './core/util.js';
 import { extractPosting } from './extract/posting.js';
 import { autoScoreBlocker, hostBlocked, isWatchedUrl } from './extract/policy.js';
 import { siteFor, siteForUrl } from './extract/sites.js';
@@ -103,8 +103,10 @@ function installHotkeys() {
     const which = (e.code === 'Digit1' || e.key === '1') ? 1 : ((e.code === 'Digit2' || e.key === '2') ? 2 : 0);
     if (!which) return;
     // Do not steal the hotkey from a text field (job boards have search boxes).
-    const t = e.target;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    // composedPath()[0] is the real element: e.target is retargeted to the host
+    // of a shadow root, so typing in the panel's own fields (or a page's web
+    // component input) would otherwise look like typing on the page.
+    if (isTypingTarget(e)) return;
     e.preventDefault();
     if (which === 2) { togglePanel(); return; }
     // Alt+1: expand and score. A selection is scored on its own.

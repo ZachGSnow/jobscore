@@ -273,7 +273,10 @@ export function modelFor(settings, provider) {
 // longer apply. Everything else only changes how facts are judged.
 export function extractionFingerprint(settings) {
   const s = settings || current;
-  return s.model.provider + '|' + modelFor(s);
+  // The prompt asks whether someone in your home region may apply
+  // (eligibility_home), so a new region needs a new answer.
+  const region = String((s.home && s.home.region) || '').trim().toLowerCase();
+  return s.model.provider + '|' + modelFor(s) + '|' + region;
 }
 
 // Paths whose value differs from the default (for the "modified" marker).

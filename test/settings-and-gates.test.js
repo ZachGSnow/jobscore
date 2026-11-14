@@ -89,8 +89,10 @@ test('settings: a full backup file imports its settings, and text with no settin
   assert.throws(() => J.importSettings('{"hello":"world"}'), /No JobScore settings found/, 'unrelated JSON is not silently imported as defaults');
 });
 
-test('settings: only the model choice changes the extraction fingerprint', () => {
+test('settings: only the model choice and home region change the extraction fingerprint', () => {
   const a = J.extractionFingerprint(cfg);
+  assert.notEqual(J.extractionFingerprint(J.setPath(cfg, 'home.region', 'Denver, Colorado')), a, 'eligibility_home is asked about this region');
+  assert.equal(J.extractionFingerprint(J.setPath(cfg, 'home.region', ' ' + cfg.home.region.toUpperCase() + ' ')), a, 'case and spaces do not matter');
   assert.equal(J.extractionFingerprint(J.setPath(cfg, 'gates.pay.floor', 1)), a);
   assert.equal(J.extractionFingerprint(J.setPath(cfg, 'profile', 'new profile')), a);
   assert.notEqual(J.extractionFingerprint(J.setPath(cfg, 'model.anthropic', 'claude-haiku-5-5')), a);

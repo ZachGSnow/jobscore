@@ -26,8 +26,12 @@ export function cheapPay(text) {
     if (Number.isFinite(n)) figs.push(n);
   }
   if (!figs.length) return null;
-  const unit = /\b(?:an?|per)\s+(hour|day|week|month|year)\b|\b(hourly|daily|weekly|monthly|annually)\b/i.exec(s);
-  const u = unit ? String(unit[1] || unit[2]).toLowerCase() : (Math.max.apply(null, figs) < 1000 ? 'hour' : 'year');
+  // "a month", "per hour", "monthly", or the short chip forms "/mo", "/hr", "/wk", "/yr".
+  // Without a unit, a figure under 1000 is hourly and anything else yearly.
+  const unit = /\b(?:an?|per)\s+(hour|day|week|month|year)\b|\b(hourly|daily|weekly|monthly|annually)\b|\/\s*(hrs?|hours?|h|days?|wks?|weeks?|mos?|months?|yrs?|years?)\b/i.exec(s);
+  const SHORT = { h: 'hour', hr: 'hour', hrs: 'hour', hours: 'hour', days: 'day', wk: 'week', wks: 'week', weeks: 'week', mo: 'month', mos: 'month', months: 'month', yr: 'year', yrs: 'year', years: 'year' };
+  const word = unit ? String(unit[1] || unit[2] || unit[3]).toLowerCase() : null;
+  const u = word ? (SHORT[word] || word) : (Math.max.apply(null, figs) < 1000 ? 'hour' : 'year');
   const mult = { hour: 2080, hourly: 2080, day: 260, daily: 260, week: 52, weekly: 52, month: 12, monthly: 12, year: 1, annually: 1 }[u] || 1;
   return Math.round(Math.max.apply(null, figs) * mult);
 }
