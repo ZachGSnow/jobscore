@@ -98,7 +98,7 @@ If no pill appears, open DevTools and look for the `[JobScore] JobScore ready` l
 | **Copy as a message** | The recruiter questions as a short first message. |
 | **Show quotes / Sent text / Raw JSON** | See the verbatim page wording behind each fact, the exact text sent to the model, and the model's reply. |
 
-The panel is draggable, and the **⤢** button makes it a large overlay (the Jobs table
+The panel is draggable, and the **expand** button (diagonal arrows, top right) makes it a large overlay (the Jobs table
 wants the room). The Violentmonkey menu has three entries: score this page, jobs
 and follow-ups, settings. Everything else (selector report, backups, cache, panel
 position) is under **Settings > Data**.
@@ -108,7 +108,7 @@ position) is under **Settings > Data**.
 | Verdict | Meaning |
 | --- | --- |
 | **APPLY** | Every gate passed. |
-| **APPLY · ask** | Passed, but something is worth asking the recruiter. The panel lists the questions. |
+| **APPLY + ask** | Passed, but something is worth asking the recruiter. The panel lists the questions. |
 | **ADJACENT** | A title like Technical Account Manager: not pre-sales, but you want to see it. |
 | **REVIEW** | The tool could not resolve something it needs. Usually a scrape gap. |
 | **SKIP** | A gate you set to *skip* failed. The reason names the gate and quotes the page. |
@@ -410,11 +410,11 @@ once more; your jobs and settings are untouched.
 
 | # | Case | Expect |
 | --- | --- | --- |
-| 1 | A posting with no pay listed | **APPLY · ask** with "What is the base salary range?" Flip Pay > No base posted to *Skip* on its row: SKIP instantly, no API call. |
+| 1 | A posting with no pay listed | **APPLY + ask** with "What is the base salary range?" Flip Pay > No base posted to *Skip* on its row: SKIP instantly, no API call. |
 | 2 | `$150k-$175k OTE with a 75/25 split` | Pay passes on the derived base, shows the OTE, flags that the range starts under the floor. |
 | 3 | A hybrid posting in your metro | Location passes (office in the metro). A hybrid posting in Austin fails. |
 | 4 | "Remote, must reside in the Pacific Northwest territory" | SKIP: your home state is not included. |
-| 5 | "Remote in New York", nothing about who may apply | APPLY · ask: "Is this open to candidates in <your state>?" |
+| 5 | "Remote in New York", nothing about who may apply | APPLY + ask: "Is this open to candidates in <your state>?" |
 | 6 | Up to 15% travel to customers in another state | SKIP at the default 10%; passes if you raise it. |
 | 7 | A Technical Account Manager posting | ADJACENT. |
 | 8 | A posting whose selector misses a section | NO SCORE or a flag; **+ Selection** fixes it. |
