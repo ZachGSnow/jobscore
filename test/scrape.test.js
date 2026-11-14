@@ -154,6 +154,63 @@ test('policy: a frame on an unlisted host is never a job page, and listed hosts 
   assert.equal(J.shouldAutoScore({ host: 'careers.trellix.com', url: 'https://careers.trellix.com/jobs/x', body: '' }), true);
 });
 
+test('policy: LinkedIn is listed on its /jobs/ pages only', () => {
+  assert.equal(J.siteForUrl('https://www.linkedin.com/jobs/view/4012345678/').name, 'LinkedIn');
+  assert.equal(J.siteForUrl('https://www.linkedin.com/jobs/search-results/?currentJobId=1').name, 'LinkedIn');
+  assert.equal(J.siteForUrl('https://www.linkedin.com/jobs').name, 'LinkedIn');
+  assert.equal(J.siteForUrl('https://www.linkedin.com/feed/'), null);
+  assert.equal(J.siteForUrl('https://www.linkedin.com/in/someone/'), null);
+  assert.equal(J.siteForUrl('https://www.linkedin.com/jobsearch-tips/'), null);
+  // Boards without jobPaths are listed on every path; selectors still come from the host.
+  assert.equal(J.siteForUrl('https://job-boards.greenhouse.io/acme/jobs/1').name, 'Greenhouse');
+  assert.equal(J.siteFor('www.linkedin.com').name, 'LinkedIn');
+  assert.equal(J.siteForUrl('not a url'), null);
+
+  // The feed reads like a posting (hiring posts), but it is not one.
+  const feed = { host: 'www.linkedin.com', url: 'https://www.linkedin.com/feed/', body: 'We are hiring! Apply now. Responsibilities, qualifications, salary, benefits. '.repeat(40) };
+  assert.equal(J.shouldAutoScore(feed), false);
+  assert.equal(J.shouldAutoScore(Object.assign({}, feed, { url: 'https://www.linkedin.com/jobs/view/1/' })), true);
+});
+
+test('policy: which URLs get a panel and a page watcher at load', () => {
+  const on = J.DEFAULT_SETTINGS;
+  const off = J.setPath(J.DEFAULT_SETTINGS, 'general.allSites', false);
+  assert.equal(J.isWatchedUrl('https://www.linkedin.com/jobs/view/1/', on), true);
+  assert.equal(J.isWatchedUrl('https://www.linkedin.com/feed/', on), false);
+  assert.equal(J.isWatchedUrl('https://www.linkedin.com/company/acme/jobs/', on), false, 'a listed host off its job paths');
+  assert.equal(J.isWatchedUrl('https://jobs.lever.co/acme/1', off), true, 'listed boards ignore all-sites');
+  assert.equal(J.isWatchedUrl('https://careers.trellix.com/jobs/x', on), true);
+  assert.equal(J.isWatchedUrl('https://careers.trellix.com/jobs/x', off), false, 'all-sites off: unlisted hosts stay idle');
+  assert.equal(J.isWatchedUrl('https://www.reddit.com/r/jobs/', on), false, 'blocklisted host');
+  assert.equal(J.isWatchedUrl('https://github.com/about/careers', on), false, 'blocklisted host');
+  assert.equal(J.isWatchedUrl('https://example.com/blog/1', on), false);
+});
+
+test('policy: the first auto-score goes through the same checks as every later one', () => {
+  const body = 'Responsibilities: deliver demonstrations. Qualifications: 3 years. Compensation: $150,000. Benefits: medical. Apply as a candidate. '.repeat(10);
+  const page = (url, extra) => Object.assign({ host: new URL(url).hostname, url, body, body_length: body.length }, extra);
+  const s = J.DEFAULT_SETTINGS;
+
+  assert.equal(J.autoScoreBlocker(page('https://jobs.lever.co/acme/1'), s), '');
+  assert.equal(J.autoScoreBlocker(page('https://careers.trellix.com/jobs/x'), s), '');
+  assert.equal(J.autoScoreBlocker(page('https://www.reddit.com/r/jobs/'), s), 'host is on the blocklist');
+  assert.equal(J.autoScoreBlocker(page('https://github.com/about/careers'), s), 'host is on the blocklist');
+  assert.equal(J.autoScoreBlocker(page('https://www.linkedin.com/feed/'), s), 'not a job posting');
+  assert.equal(J.autoScoreBlocker(page('https://jobs.lever.co/acme/1'), J.setPath(s, 'general.autoScore', false)), 'auto-score is off');
+  assert.equal(J.autoScoreBlocker(page('https://jobs.lever.co/acme/1', { body_length: 10 }), s), 'posting not loaded yet');
+  assert.equal(J.autoScoreBlocker(page('https://www.indeed.com/jobs?q=x', { strict: true, pane_found: false }), s), 'pane not on this job yet');
+  assert.equal(J.autoScoreBlocker(page('https://www.linkedin.com/jobs/view/1/', { pane_stale: true }), s), 'pane not on this job yet');
+
+  // all-sites off: shouldAutoScore reads the module-level settings.
+  J.setCurrentSettings(J.setPath(s, 'general.allSites', false));
+  try {
+    assert.equal(J.autoScoreBlocker(page('https://careers.trellix.com/jobs/x'), J.getSettings()), 'not a job posting');
+    assert.equal(J.autoScoreBlocker(page('https://jobs.lever.co/acme/1'), J.getSettings()), '');
+  } finally {
+    J.setCurrentSettings(J.DEFAULT_SETTINGS);
+  }
+});
+
 test('result cards you already track are outlined by status, and cards you passed on are dimmed', () => {
   const card = (id, company, title) => '<div class="cardOutline result" id="' + id + '"><h3 class="jobTitle"><span title="' + title + '">' + title + '</span></h3>' +
     '<span data-testid="company-name">' + company + '</span><div data-testid="text-location">Remote</div></div>';
