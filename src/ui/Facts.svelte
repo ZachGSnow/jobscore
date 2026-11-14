@@ -52,7 +52,8 @@
     const tip = [ev ? 'quote: "' + ev + '"' : null, why ? 'model: ' + why : null].filter(Boolean).join('   |   ');
     const empty = value == null || value === '';
     const notStated = empty && status !== 'unverified' && key && $session.present && $session.present[key] === false;
-    const shown = empty ? (status === 'unverified' ? 'quoted but not found' : (notStated ? '(not stated)' : 'n/a')) : String(value);
+    const shown = status === 'unquoted' ? 'no quote - scored as unknown'
+      : empty ? (status === 'unverified' ? 'quoted but not found' : (notStated ? '(not stated)' : 'n/a')) : String(value);
     return { status, tip, shown, ev };
   }
 </script>
@@ -63,6 +64,7 @@
     <span class="k">{label}</span>
     <span class:unverified={c.status === 'unverified'}>{c.shown}</span>
     {#if c.status === 'unverified'}<span class="warn" title="The quote was not found in the page text - treated as null for scoring">!</span>{/if}
+    {#if c.status === 'unquoted'}<span class="warn" title="The model gave this fact without a quote from the page, so it was scored as not stated">?</span>{/if}
   </div>
   {#if $ui.showQuotes && c.ev}<div class="quote">{c.ev}</div>{/if}
 {/each}
@@ -70,6 +72,10 @@
 {#if v && v.unverified.length}
   <h4>Unverified (quote not in page text - scored as null)</h4>
   <ul>{#each v.unverified as k (k)}<li><span class="status caution">!</span><span>{k}</span></li>{/each}</ul>
+{/if}
+{#if v && v.unquoted && v.unquoted.length}
+  <h4>No quote (scored as unknown)</h4>
+  <ul>{#each v.unquoted as k (k)}<li><span class="status caution">?</span><span>{k}</span></li>{/each}</ul>
 {/if}
 {#if v && v.noQuote.length}
   <div class="meta" style="margin-top:6px">No quote supplied for: {v.noQuote.join(', ')}</div>

@@ -866,8 +866,48 @@ test('33. the no-quote list only names fields that assert something', () => {
     pay_posted: { value: true },
   });
   const v = J.verifyEvidence(x, evidence, pageText);
-  assert.deepEqual(v.noQuote, ['pay_posted'],
+  assert.deepEqual(v.noQuote, [],
     'a summary, a fallback enum and a false boolean have nothing to quote');
+  assert.deepEqual(v.unquoted, ['pay_posted'], 'a deciding fact with no quote is scored as unknown instead');
+  assert.equal(v.x.pay_posted, false);
+});
+
+test('33b. a deciding fact needs a quote: without one its gate falls to unknown, never pass or fail', () => {
+  const pageText = 'Solutions Engineer at Acme. Join our team and run demos for IT buyers. Base salary $140,000 - $160,000.';
+  const { x, evidence } = J.normalizeExtraction({
+    title: { value: 'Solutions Engineer', evidence: 'Solutions Engineer' },
+    base_min: { value: 140000, evidence: 'Base salary $140,000 - $160,000' },
+    base_max: { value: 160000, evidence: 'Base salary $140,000 - $160,000' },
+    // Claimed with no quote: the page says nothing about either.
+    work_arrangement: { value: 'remote', evidence: null },
+    eligibility_home: { value: 'yes', evidence: null },
+    location_scope: { value: 'us_wide' },
+    travel_percent: { value: 50 },
+    // Declining to claim, so nothing to quote.
+    quota_carrying: { value: false },
+    product_category: { value: 'MDR' },
+  });
+  const v = J.verifyEvidence(x, evidence, pageText);
+  assert.deepEqual(v.unquoted.slice().sort(), ['eligibility_home', 'location_scope', 'travel_percent', 'work_arrangement']);
+  assert.equal(v.x.work_arrangement, 'unclear');
+  assert.equal(v.x.eligibility_home, 'unclear');
+  assert.equal(v.x.location_scope, 'unclear');
+  assert.equal(v.x.travel_percent, null);
+  assert.equal(v.x.base_min, 140000, 'a quoted fact stands');
+  assert.equal(v.x.quota_carrying, false);
+  assert.equal(v.x.product_category, 'MDR', 'a fact no gate decides on is kept');
+  assert.equal(v.status.work_arrangement, 'unquoted');
+  assert.ok(!v.noQuote.includes('work_arrangement'), 'listed once, under unquoted');
+
+  // The same facts with quotes that are on the page are kept.
+  const quoted = J.normalizeExtraction({
+    work_arrangement: { value: 'remote', evidence: 'run demos for IT buyers' },
+    travel_percent: { value: 50, evidence: 'Join our team' },
+  });
+  const v2 = J.verifyEvidence(quoted.x, quoted.evidence, pageText);
+  assert.equal(v2.x.work_arrangement, 'remote');
+  assert.equal(v2.x.travel_percent, 50);
+  assert.deepEqual(v2.unquoted, []);
 });
 
 test('34. the evidence haystack is what the model was shown, URL included', () => {

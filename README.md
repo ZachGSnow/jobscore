@@ -17,7 +17,8 @@ each posting for you and applies **your** rules.
 It is built around the hard part of using an LLM for a decision: trusting what it
 says. So the model never decides anything. It **extracts facts**, each with a
 verbatim quote. Code **checks every quote against the page** and throws away any
-fact it cannot find. Then plain, tested code **judges the facts against your
+fact it cannot find, and a fact that decides a gate (pay, location, eligibility,
+travel, years, employer, quota) counts only with a quote. Then plain, tested code **judges the facts against your
 settings**, which you edit in the panel.
 
 ```
@@ -269,7 +270,7 @@ editing your profile never re-reads a posting. Turn it off in Settings > Model.
 | Pick the posting text (site selectors, then generic fallback, then `ld+json`) | code | `src/extract/` |
 | Refuse to score a bad capture before any API call | code | `extractionIssues()` |
 | Extract facts as JSON with a quote each (temperature 0) | model | `src/llm/prompt.js` |
-| Check every quote is on the page; drop the field if not | code | `verifyEvidence()` |
+| Check every quote is on the page; drop the field if not, and treat a gate-deciding fact with no quote as unknown | code | `verifyEvidence()` |
 | Cross-check the facts against the captured text | code | `factCrossChecks()` |
 | Turn facts into gates and a verdict, using your settings | code | `src/core/gates.js` |
 | Compare requirements with your profile (informational) | model | `runFitNotes()` |
