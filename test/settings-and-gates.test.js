@@ -23,6 +23,27 @@ function mk(overrides) {
 
 /* ------------------------------------------------------------- settings */
 
+test('settings: gate effects and other closed choices only take known words', () => {
+  const merged = J.mergeSettings({
+    model: { provider: 'evil' },
+    gates: {
+      title: { onFail: 'Skip ' },
+      location: { onFail: 'block', onUnknown: 'IGNORE' },
+      pay: { compareAt: 'MIDPOINT', onStraddle: 7 },
+      travel: { onFail: '' },
+    },
+  });
+  assert.equal(merged.gates.title.onFail, 'skip', 'case and spaces are forgiven');
+  assert.equal(merged.gates.location.onFail, J.DEFAULT_SETTINGS.gates.location.onFail, 'an unknown effect falls back');
+  assert.equal(merged.gates.location.onUnknown, 'ignore');
+  assert.equal(merged.gates.pay.compareAt, 'midpoint');
+  assert.equal(merged.gates.pay.onStraddle, J.DEFAULT_SETTINGS.gates.pay.onStraddle);
+  assert.equal(merged.gates.travel.onFail, J.DEFAULT_SETTINGS.gates.travel.onFail);
+  assert.equal(merged.model.provider, J.DEFAULT_SETTINGS.model.provider);
+  assert.equal(J.mergeSettings({ model: { provider: 'ollama' } }).model.provider, 'ollama');
+  assert.equal(J.mergeSettings({ gates: { pay: { compareAt: 'max' } } }).gates.pay.compareAt, J.DEFAULT_SETTINGS.gates.pay.compareAt);
+});
+
 test('settings: a saved blob merges over the defaults and drops junk', () => {
   const merged = J.mergeSettings({
     gates: { pay: { floor: '130000', preferred: 'abc', onNotPosted: 'skip' }, nonsense: { a: 1 } },

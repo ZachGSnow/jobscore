@@ -1,8 +1,7 @@
 import { getv, setv } from './gm.js';
 import { blankJob, cleanRecord, upsertJob } from './jobs.js';
 import { LIMITS, SCHEMA_VERSION } from './config.js';
-
-export const TRACKING_PARAMS = /^(utm_|trk|trackingId|refId|gh_src|gh_jid|src|source|from|fbclid|gclid|mc_|_hs|campaignId|recommendedFlavor|position|pageNum|start)/i;
+import { stripTracking } from './util.js';
 
 export function canonicalKey(url) {
   try {
@@ -20,10 +19,7 @@ export function canonicalKey(url) {
       const id = fromQuery || fromPath;
       if (id) return 'linkedin:job:' + id;
     }
-    u.hash = '';
-    for (const k of Array.from(u.searchParams.keys())) {
-      if (TRACKING_PARAMS.test(k)) u.searchParams.delete(k);
-    }
+    stripTracking(u);
     const qs = u.searchParams.toString();
     return u.origin + u.pathname.replace(/\/+$/, '') + (qs ? '?' + qs : '');
   } catch (e) {

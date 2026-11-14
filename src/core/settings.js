@@ -194,9 +194,20 @@ export function setPath(obj, path, value) {
   return out;
 }
 
+// String settings with a closed vocabulary, by key. A gate effect (onFail,
+// onUnknown, onStraddle ...) is any key starting with "on" whose default is an
+// effect. score() only counts the exact words, so "Skip" from a hand-edited
+// file would otherwise switch the gate off without a word.
+const CHOICES = { compareAt: ['top', 'midpoint', 'bottom'], provider: Object.keys(PROVIDERS) };
+function choicesFor(key, base) {
+  if (CHOICES[key]) return CHOICES[key];
+  if (/^on[A-Z]/.test(key || '') && EFFECTS.includes(base)) return EFFECTS;
+  return null;
+}
+
 // Take `saved` where it has the same shape as `defaults`, and the default where
 // it does not. Unknown keys are dropped, so a stale export cannot add junk.
-export function mergeSettings(saved, defaults) {
+export function mergeSettings(saved, defaults, key) {
   const base = defaults === undefined ? DEFAULT_SETTINGS : defaults;
   if (Array.isArray(base)) {
     if (!Array.isArray(saved)) return base.slice();
@@ -205,7 +216,7 @@ export function mergeSettings(saved, defaults) {
   if (isPlainObject(base)) {
     const src = isPlainObject(saved) ? saved : {};
     const out = {};
-    for (const k of Object.keys(base)) out[k] = mergeSettings(src[k], base[k]);
+    for (const k of Object.keys(base)) out[k] = mergeSettings(src[k], base[k], k);
     return out;
   }
   if (typeof base === 'number') {
@@ -213,7 +224,11 @@ export function mergeSettings(saved, defaults) {
     return Number.isFinite(n) ? n : base;
   }
   if (typeof base === 'boolean') return typeof saved === 'boolean' ? saved : base;
-  return typeof saved === 'string' ? saved : base;
+  if (typeof saved !== 'string') return base;
+  const choices = choicesFor(key, base);
+  if (!choices) return saved;
+  const v = saved.trim().toLowerCase();
+  return choices.includes(v) ? v : base;
 }
 
 // Settings from before there was a settings blob lived under loose GM keys.

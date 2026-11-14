@@ -289,6 +289,19 @@ test('9. other sites drop tracking parameters but keep real query params', () =>
   assert.equal(u, 'https://boards.greenhouse.io/acme/jobs/123?foo=bar');
 });
 
+test('9b. an embedded Greenhouse board keeps gh_jid, the job id', () => {
+  const a = J.canonicalKey('https://acme.com/careers?gh_jid=111&gh_src=alert');
+  const b = J.canonicalKey('https://acme.com/careers?gh_jid=222');
+  assert.equal(a, 'https://acme.com/careers?gh_jid=111');
+  assert.notEqual(a, b, 'two postings on one careers page are two jobs');
+  assert.equal(J.permalinkFor('https://acme.com/careers?gh_jid=111&utm_medium=email'), 'https://acme.com/careers?gh_jid=111');
+});
+
+test('9c. tracking names are matched whole, so lookalike job parameters survive', () => {
+  const u = J.canonicalKey('https://acme.wd1.myworkdayjobs.com/x?positionId=9&startDate=2026-12-01&sourceId=4&source=ad&start=20&position=3&trkCampaign=z&utm_campaign=q&mc_eid=1');
+  assert.equal(u, 'https://acme.wd1.myworkdayjobs.com/x?positionId=9&startDate=2026-12-01&sourceId=4');
+});
+
 console.log('verifyEvidence()');
 
 test('10. a quote that is not in the page text nulls its own field', () => {
