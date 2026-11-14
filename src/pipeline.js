@@ -178,7 +178,11 @@ export async function runPipeline(opts, settings, doc, win) {
     );
     meta = { cached: false, provider: repair.provider, model: repair.model };
     text = repair.text;
-    raw = parseModelJson(repair.text);
+    try {
+      raw = parseModelJson(repair.text);
+    } catch (e2) {
+      throw new Error((repair.model || 'The model') + ' did not return valid JSON, even when asked a second time (' + e2.message + '). Press Rescore, or pick another model in Settings > Model.');
+    }
   }
   meta.rawText = text;
 
