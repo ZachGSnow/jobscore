@@ -86,7 +86,7 @@ if (!('apikey.anthropic' in store)) store['apikey.anthropic'] = 'test-key';
 window.GM_getValue = (k, d) => (k in store ? store[k] : d);
 window.GM_setValue = (k, v) => { store[k] = v; localStorage.setItem('gm', JSON.stringify(store)); };
 window.GM_registerMenuCommand = (name, fn) => { (window.__menu = window.__menu || []).push(name); (window.__menuFns = window.__menuFns || {})[name] = fn; };
-window.GM_info = { script: { version: '2.1.0-harness' } };
+window.GM_info = { script: { version: '2.1.1-harness' } };
 window.__calls = [];
 
 const f = (value, evidence, explanation) => ({ value, present: value !== null, evidence: evidence || null, explanation: explanation || 'from the posting' });
