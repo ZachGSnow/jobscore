@@ -1,6 +1,6 @@
 import { getv, setv } from '../core/gm.js';
 import { LIMITS, PROVIDERS } from '../core/config.js';
-import { getSettings, modelFor } from '../core/settings.js';
+import { getSettings, isLocalOllamaUrl, modelFor } from '../core/settings.js';
 
 // API keys live in Violentmonkey storage, never in the settings blob, so an
 // exported settings file cannot leak one.
@@ -158,6 +158,9 @@ export async function callLLM(systemPrompt, userPrompt, opts) {
   }
   const model = modelName(providerName);
   const url = providerName === 'ollama' ? (settings.model.ollamaUrl || p.url) : p.url;
+  if (providerName === 'ollama' && !isLocalOllamaUrl(url)) {
+    throw new Error('The Ollama URL must be on this computer (http://localhost:11434 or http://127.0.0.1:11434). Fix it in Settings > Model.');
+  }
   // Models differ in what they accept, and newer ones drop parameters older ones
   // took. On a 400 that names a parameter we sent, retry without it instead of
   // failing the score: temperature first, then the assistant-prefill trick.

@@ -73,7 +73,7 @@ verdict.
    automatically as updates.
 3. Open a job posting. A small pill appears top right. Click it, open
    **Settings > Model**, pick a provider and paste an API key (or point it at a local
-   Ollama). Reload the tab.
+   Ollama on `localhost` or `127.0.0.1`; other hosts are refused). Reload the tab.
 4. Make it yours: **Settings > Pay > Where you work from** (home region, territory
    words including your state name and code, commutable places), and
    **Settings > Profile** for the fit notes.
