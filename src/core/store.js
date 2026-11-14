@@ -62,24 +62,12 @@ export function cachePut(key, entry) {
   writeCache(cache);
 }
 
-// The local history is just this rolling log. It is stored with GM_setValue
-// (per-browser, per-profile) and never leaves the machine.
-export function appendLog(entry) {
-  const raw = getv('log', []);
-  const list = Array.isArray(raw) ? raw : [];
-  // Looking at the same posting again replaces its entry instead of piling up.
-  const last = list[list.length - 1];
-  if (last && last.url && last.url === entry.url) list[list.length - 1] = entry;
-  else list.push(entry);
-  setv('log', list.slice(-LIMITS.LOG_MAX));
-}
-
+// The rolling log that came before the job tracker. Only read now, once, to
+// carry its entries into the tracker on first run (loadJobs).
 export function readLog() {
   const raw = getv('log', []);
   return Array.isArray(raw) ? raw.filter((e) => e && typeof e === 'object') : [];
 }
-
-export function clearLog() { setv('log', []); }
 
 export function clearCache() { setv('cache', {}); }
 

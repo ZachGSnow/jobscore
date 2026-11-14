@@ -1385,3 +1385,10 @@ test('70. history counts REVIEW separately from SKIP', () => {
   assert.equal(h.skip, 2);
 });
 
+
+test('escapeRegExp makes any alias or language a literal match', () => {
+  const s = 'C++ (Lead) a.b? $x [y] {z} ^w | \v';
+  assert.ok(new RegExp('^' + J.escapeRegExp(s) + '$').test(s));
+  assert.equal(new RegExp(J.escapeRegExp('a.c')).test('abc'), false);
+  assert.equal(J.escapeRegExp(null), '');
+});

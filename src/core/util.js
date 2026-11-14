@@ -55,6 +55,10 @@ export function esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+// Escapes a string for use inside a RegExp (esc() above is for HTML).
+export function escapeRegExp(s) {
+  return String(s == null ? '' : s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 export function debounce(fn, ms) {
   let t = null;
   const wrapped = function (...args) {

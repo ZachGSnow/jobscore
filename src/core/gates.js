@@ -5,7 +5,7 @@
 // unknown MEANS for the verdict (skip, review, flag, ignore) is a setting, so
 // loosening a rule never needs a code change or a new API call.
 import { DEFAULT_SETTINGS } from './settings.js';
-import { clip, money, norm, num, str } from './util.js';
+import { clip, escapeRegExp, money, norm, num, str } from './util.js';
 import {
   containsWord, firstPhrase, homeAliasMatch, homeLabel, homeState, inHomeMetro, mentionsHomeRegion,
   metroMatch, US_STATE_CODES,
@@ -90,7 +90,6 @@ export function firstQuote() {
   return '';
 }
 
-function esc(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
 /* ------------------------------------------------------------------ title */
 
@@ -679,7 +678,7 @@ export function languageGate(text, cfg) {
   const G = gc(cfg, 'language');
   const src = String(text || '');
   for (const lang of (G.languages || [])) {
-    const l = esc(lang);
+    const l = escapeRegExp(lang);
     const re = new RegExp(l + '\\s+(?:fluency|required)|fluency in ' + l + '|bilingual[^.\\n]{0,12}' + l, 'i');
     const m = re.exec(src);
     if (m && !/preferred|a plus|nice to have/i.test(m[0])) return gate('Language', 'fail', 'A language other than English is required', m[0]);
