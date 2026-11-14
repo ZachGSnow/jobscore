@@ -1,5 +1,6 @@
+import { LIMITS } from '../core/config.js';
 import { getSettings } from '../core/settings.js';
-import { siteFor } from './sites.js';
+import { siteFor, siteForUrl } from './sites.js';
 import { postingSignalCount } from './dom.js';
 
 /* ------------------------------------------------- sites we do not list
@@ -33,9 +34,34 @@ export function looksLikeJobPage(page) {
 // Should this page be scored without being asked?
 export function shouldAutoScore(page) {
   if (!page) return false;
-  if (siteFor(page.host)) return true;          // a listed site: always
+  if (siteFor(page.host)) return !!siteForUrl(page.url);     // a listed site: on its job pages only
   if (!getSettings().general.allSites) return false;          // unknown host and ALL_SITES off
   if (hostBlocked(page.host)) return false;
   if (isJobLikeUrl(page.url)) return true;      // /jobs/... on a company site
   return looksLikeJobPage(page);                // some other URL, but it reads like a posting
+}
+
+// Is this URL worth a panel and a page watcher, before anything is read?
+// Listed boards on their job pages, or a job-like URL on an unlisted host that
+// all-sites allows and the blocklist does not rule out.
+export function isWatchedUrl(url, settings) {
+  if (siteForUrl(url)) return true;
+  let host;
+  try { host = new URL(url).hostname; } catch (e) { return false; }
+  if (siteFor(host)) return false;              // a listed host, off its job pages
+  const s = settings || getSettings();
+  return !!s.general.allSites && !hostBlocked(host) && isJobLikeUrl(url);
+}
+
+// Why this page should NOT be auto-scored now, or '' when it should. The first
+// score after load and every later page change both go through this one check.
+export function autoScoreBlocker(page, settings) {
+  const s = settings || getSettings();
+  if (!s.general.autoScore) return 'auto-score is off';
+  if (!page) return 'no page';
+  if (hostBlocked(page.host)) return 'host is on the blocklist';
+  if (page.body_length < LIMITS.MIN_DESC_CHARS) return 'posting not loaded yet';
+  if ((page.strict && page.pane_found === false) || page.pane_stale) return 'pane not on this job yet';
+  if (!shouldAutoScore(page)) return 'not a job posting';
+  return '';
 }

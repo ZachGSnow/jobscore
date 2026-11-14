@@ -5,8 +5,8 @@ import { LIMITS } from './core/config.js';
 import { modelFor } from './core/settings.js';
 import { debounce, log } from './core/util.js';
 import { extractPosting } from './extract/posting.js';
-import { hostBlocked, isJobLikeUrl, shouldAutoScore } from './extract/policy.js';
-import { siteFor } from './extract/sites.js';
+import { autoScoreBlocker, hostBlocked, isWatchedUrl } from './extract/policy.js';
+import { siteFor, siteForUrl } from './extract/sites.js';
 import { ensurePanel, panelIsUp } from './ui/mount.js';
 import {
   currentSelection, isBusy, isSameSignature, kickoffScore, pageSignature, patchUi,
@@ -37,9 +37,7 @@ const onMaybeChanged = debounce(() => {
   if (hostBlocked(location.hostname)) return;
   scanCardsSafe();
   const page = extractPosting(document, window);
-  if (page.body_length < LIMITS.MIN_DESC_CHARS) return;                          // pane still loading
-  if ((page.strict && page.pane_found === false) || page.pane_stale) return;      // pane not on this job yet (Indeed, LinkedIn)
-  if (!shouldAutoScore(page)) return;                                             // not a job posting
+  if (autoScoreBlocker(page, s)) return;     // loading, stale pane, blocklist, all-sites, not a posting
   const sig = pageSignature(page);
   if (sig === undefined || isSameSignature(sig)) return;                          // same posting, already scored
   // Remember the signature before the attempt so a failed call (no key, no
@@ -123,9 +121,23 @@ function installHotkeys() {
 
 /* ------------------------------------------------------------------ boot */
 
+let armed = false;
+
+// Panel, page watcher and card labels. The first score goes through
+// onMaybeChanged like every later one, so the blocklist, the all-sites setting
+// and the "is this a posting" test apply from the start.
+function arm() {
+  if (armed) return;
+  armed = true;
+  ensurePanel();
+  watchPage();
+  setTimeout(scanCardsSafe, 800);
+  onMaybeChanged();
+}
+
 function boot() {
   const hostname = location.hostname;
-  const listed = !!siteFor(hostname);
+  const listed = !!siteForUrl(location.href);
   // The catch-all @match also loads this in every iframe on every page. A frame
   // is only worth a panel when it IS a listed job board (an embedded Greenhouse
   // board, say); an ad or a widget frame stays silent.
@@ -136,22 +148,23 @@ function boot() {
   hookHistory();
 
   const s = get(settings);
-  const jobUrl = isJobLikeUrl(location.href);
 
-  if (listed || jobUrl) {
-    // A site we know, or a URL that looks like a job page.
-    ensurePanel();
-    watchPage();
-    setTimeout(scanCardsSafe, 800);
-    if (s.general.autoScore) setTimeout(() => kickoffScore({}), 600);
+  if (isWatchedUrl(location.href, s)) {
+    // A job board's job pages, or a URL that looks like a job page.
+    arm();
   } else {
-    // Unknown page. Stay out of the way: no panel, no observers. Alt+1 or the
-    // menu command will set everything up and score whatever is here.
-    log('idle on this page (unknown host and the URL is not job-like). Alt+1 or menu -> "score this page" to score it anyway.');
+    // Stay out of the way: no panel, no observers. Alt+1 or the menu command
+    // will set everything up and score whatever is here. Single-page sites
+    // change the URL without a reload (LinkedIn's feed -> Jobs), so a move to
+    // a job page arms it then.
+    window.addEventListener('jobscore:locationchange', () => {
+      setTimeout(() => { if (!armed && isWatchedUrl(location.href, get(settings))) arm(); }, 400);
+    });
+    log('idle on this page (not a listed job page and the URL is not job-like). Alt+1 or menu -> "score this page" to score it anyway.');
   }
 
   log('JobScore ready. Provider:', s.model.provider, '| model:', modelFor(s),
-    '| site:', listed ? siteFor(hostname).name : 'unlisted',
+    '| site:', siteFor(hostname) ? siteFor(hostname).name + (listed ? '' : ' (not a job page)') : 'unlisted',
     '| auto-score:', s.general.autoScore, '| all-sites:', s.general.allSites);
 }
 

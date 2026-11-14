@@ -14,6 +14,9 @@ export const SITE_SELECTORS = [
     // so a pane still showing the previous job is never scored.
     match: /(^|\.)linkedin\.com$/i,
     name: 'LinkedIn',
+    // One host for the feed, messages and profiles too, and the catch-all
+    // @match loads the script on all of them. Only /jobs/ pages are listed.
+    jobPaths: /^\/jobs(?:\/|$)/i,
     // paneFromDescription: the header is read inside the ancestor of the
     // posting that also holds the job link, so the left-hand results list can
     // never supply the title.
@@ -164,4 +167,14 @@ export const SITE_SELECTORS = [
 
 export function siteFor(hostname) {
   return SITE_SELECTORS.find((s) => s.match.test(hostname)) || null;
+}
+
+// The listed site for a URL, but only on the paths where it shows jobs
+// (`jobPaths`; a site without one is a job board on every path). siteFor()
+// still picks the selectors, so Alt+1 on any page uses the right ones.
+export function siteForUrl(url) {
+  let u;
+  try { u = new URL(url); } catch (e) { return null; }
+  const site = siteFor(u.hostname);
+  return site && (!site.jobPaths || site.jobPaths.test(u.pathname)) ? site : null;
 }
