@@ -116,6 +116,12 @@ export function normalizeExtraction(raw) {
   x.pay_posted = boolish(posted.value) === true;
   evidence.pay_posted = str(posted.evidence);
 
+  // The prompt asks for it and the Title gate's blockQuota reads it, so a
+  // presales-labelled role that still "carries a quota" is caught.
+  const quota = unwrap(r.quota_carrying);
+  x.quota_carrying = boolish(quota.value) === true;
+  evidence.quota_carrying = str(quota.evidence);
+
   // named_tools: {"value":[..],"evidence":[..]} or a bare array of names
   const toolsField = r.named_tools;
   if (toolsField && typeof toolsField === 'object' && !Array.isArray(toolsField)) {
@@ -199,6 +205,7 @@ export function verifyEvidence(x, evidence, haystack) {
   if (out.eligibility_home === null) out.eligibility_home = 'unclear';
   if (out.pay_range_is_job_family_wide === null) out.pay_range_is_job_family_wide = false;
   if (out.pay_posted === null) out.pay_posted = false;
+  if (out.quota_carrying === null) out.quota_carrying = false;
 
   // Each named tool carries its own quote.
   const tools = [];

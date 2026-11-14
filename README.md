@@ -309,7 +309,7 @@ that is a scrape gap and a REVIEW, not "no pay listed".
 ## Cost and storage
 
 - Extractions are cached for 14 days by canonical URL (LinkedIn and Indeed key on the job id, so clicking through a results list reuses hits).
-- The cache is tagged with provider and model, so switching models re-reads.
+- The cache is tagged with provider, model and home region, so switching models or moving re-reads.
 - Fit notes are cached per posting and profile.
 - Every real score is saved as a job (see *Tracking your jobs*). Jobs are never trimmed, unlike the 14-day cache. *Insights* on the Jobs tab shows what skips you most and what raises the most questions. Nothing leaves your browser except the posting text sent to your chosen provider.
 

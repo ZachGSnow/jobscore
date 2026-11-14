@@ -102,3 +102,13 @@ export function safeHttpUrl(v) {
     return '';
   }
 }
+
+// Is this key event aimed at somewhere you type? Reads composedPath()[0], the
+// real element, because e.target is retargeted to a shadow root's host.
+export function isTypingTarget(e) {
+  const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+  const t = path[0] || e.target;
+  if (!t) return false;
+  const tag = String(t.tagName || '').toUpperCase();
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!t.isContentEditable;
+}

@@ -1301,6 +1301,45 @@ test('64. cheapPay annualises hourly pay and ignores text with no figure', () =>
   assert.equal(J.cheapPay(''), null);
 });
 
+test('64b. cheapPay reads the short chip units (/mo, /hr, /wk, /yr)', () => {
+  assert.equal(J.cheapPay('$8K/mo'), 96000, 'a monthly chip is not a yearly salary');
+  assert.equal(J.cheapPay('$9,500 / month'), 114000);
+  assert.equal(J.cheapPay('$45/hr'), 93600);
+  assert.equal(J.cheapPay('$2,500/wk'), 130000);
+  assert.equal(J.cheapPay('$150K/yr'), 150000);
+  assert.equal(J.cheapPay('$140K-$160K/year'), 160000);
+});
+
+test('64c. a quota-carrying role is read from the model and fails the Title gate', () => {
+  const page = 'Solutions Engineer. You will carry a quota alongside your account executive.';
+  const { x, evidence } = J.normalizeExtraction({
+    role_type: { value: 'presales', evidence: 'Solutions Engineer' },
+    quota_carrying: { value: true, evidence: 'You will carry a quota' },
+  });
+  assert.equal(x.quota_carrying, true);
+  const v = J.verifyEvidence(x, evidence, page);
+  assert.equal(v.x.quota_carrying, true, 'the quote is on the page');
+  assert.equal(J.verifyEvidence(x, Object.assign({}, evidence, { quota_carrying: 'quota of $1M' }), page).x.quota_carrying, false,
+    'an unverified quote drops the claim');
+  assert.equal(J.normalizeExtraction({}).x.quota_carrying, false);
+
+  const res = J.score(mk({ role_type: 'presales', quota_carrying: true }), cfg);
+  assert.equal(gateOf(res, 'Title').status, 'fail');
+  assert.equal(res.verdict, 'SKIP');
+  assert.equal(gateOf(J.score(mk({ role_type: 'presales', quota_carrying: false }), cfg), 'Title').status, 'pass');
+});
+
+test('64d. Alt+1 is left alone while you type, even inside a shadow root', () => {
+  const ev = (el, path) => ({ target: el, composedPath: () => path || [el] });
+  const host = { tagName: 'DIV' };
+  const input = { tagName: 'INPUT' };
+  assert.equal(J.isTypingTarget(ev(host, [input, host])), true, 'retargeted to the panel host');
+  assert.equal(J.isTypingTarget(ev({ tagName: 'SELECT' })), true);
+  assert.equal(J.isTypingTarget(ev({ tagName: 'DIV', isContentEditable: true })), true);
+  assert.equal(J.isTypingTarget(ev({ tagName: 'BODY' })), false);
+  assert.equal(J.isTypingTarget({ target: { tagName: 'textarea' } }), true, 'no composedPath falls back to target');
+});
+
 test('65. cheap gates fail a card on title, pay or place, and never on what the card does not show', () => {
   const at = (c) => J.cheapGates(c, cfg);
   assert.equal(at({ title: 'Sales Manager', location: 'Indianapolis, IN 46204', pay: '$80,000 - $200,000 a year' }).name, 'Title');
