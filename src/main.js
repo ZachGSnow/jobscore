@@ -5,7 +5,7 @@ import { LIMITS } from './core/config.js';
 import { modelFor } from './core/settings.js';
 import { debounce, isTypingTarget, log } from './core/util.js';
 import { extractPosting } from './extract/posting.js';
-import { autoScoreBlocker, hostBlocked, isWatchedUrl } from './extract/policy.js';
+import { autoScoreBlocker, embedsListedBoard, hostBlocked, isWatchedUrl } from './extract/policy.js';
 import { siteFor, siteForUrl } from './extract/sites.js';
 import { ensurePanel, panelIsUp } from './ui/mount.js';
 import {
@@ -91,7 +91,7 @@ function togglePanel() {
 // panel position) lives in the panel under Settings > Data.
 function registerMenus() {
   if (typeof GM_registerMenuCommand !== 'function') return;
-  GM_registerMenuCommand('JobScore: score this page', () => guarded('score this page', () => { ensurePanel(); patchUi({ collapsed: false, view: 'score' }); kickoffScore({ force: true }); }));
+  GM_registerMenuCommand('JobScore: score this page', () => guarded('score this page', () => { ensurePanel(); startWatching(); patchUi({ collapsed: false, view: 'score' }); kickoffScore({ force: true }); }));
   GM_registerMenuCommand('JobScore: jobs and follow-ups', () => openPanel({ view: 'jobs' }));
   GM_registerMenuCommand('JobScore: settings', () => openPanel({ view: 'settings' }));
 }
@@ -112,6 +112,7 @@ function installHotkeys() {
     // Alt+1: expand and score. A selection is scored on its own.
     guarded('score this page', () => {
       ensurePanel();
+      startWatching();
       log('hotkey pressed');
       patchUi({ collapsed: false, view: 'score' });
       const sel = currentSelection();
@@ -124,6 +125,16 @@ function installHotkeys() {
 /* ------------------------------------------------------------------ boot */
 
 let armed = false;
+let watching = false;
+
+// The page watcher and card labels. Alt+1 on an idle page starts them too, so a
+// single-page careers site you chose to score keeps up when you move on.
+function startWatching() {
+  if (watching) return;
+  watching = true;
+  watchPage();
+  setTimeout(scanCardsSafe, 800);
+}
 
 // Panel, page watcher and card labels. The first score goes through
 // onMaybeChanged like every later one, so the blocklist, the all-sites setting
@@ -132,8 +143,7 @@ function arm() {
   if (armed) return;
   armed = true;
   ensurePanel();
-  watchPage();
-  setTimeout(scanCardsSafe, 800);
+  startWatching();
   onMaybeChanged();
 }
 
@@ -151,9 +161,15 @@ function boot() {
 
   const s = get(settings);
 
-  if (isWatchedUrl(location.href, s)) {
+  const embedded = window.top === window.self && !listed && embedsListedBoard(document);
+  if (isWatchedUrl(location.href, s) && !embedded) {
     // A job board's job pages, or a URL that looks like a job page.
     arm();
+  } else if (embedded) {
+    // A careers page that embeds a listed board (Greenhouse's job_app iframe):
+    // the posting lives in the frame, and the frame gets the panel. Arming here
+    // too gave two panels and two model calls for one job.
+    log('idle on this page: the posting is in an embedded job-board frame, which has its own panel.');
   } else {
     // Stay out of the way: no panel, no observers. Alt+1 or the menu command
     // will set everything up and score whatever is here. Single-page sites

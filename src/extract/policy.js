@@ -65,3 +65,17 @@ export function autoScoreBlocker(page, settings) {
   if (!shouldAutoScore(page)) return 'not a job posting';
   return '';
 }
+
+// Does this page embed a listed board in a frame? Greenhouse's embed (a
+// #grnhse_app div that its script fills with the job_app iframe) and Ashby's
+// (#ashby_embed) put the whole posting in a cross-origin frame, which the
+// script also runs in and gives its own panel. Checked at load, so the markers
+// the embed code starts from count as well as the frame itself.
+export const EMBEDDED_BOARD_SELECTOR = [
+  '#grnhse_app', '#grnhse_iframe', 'iframe[src*="greenhouse.io/embed"]', 'script[src*="greenhouse.io/embed"]',
+  '#ashby_embed', 'iframe[src*="jobs.ashbyhq.com"]', 'script[src*="jobs.ashbyhq.com"]',
+].join(', ');
+
+export function embedsListedBoard(doc) {
+  try { return !!(doc && doc.querySelector(EMBEDDED_BOARD_SELECTOR)); } catch (e) { return false; }
+}
