@@ -40,7 +40,7 @@ export default defineConfig({
           'https://jobs.ashbyhq.com/*',
           '*://*/*',
         ],
-        grant: ['GM_xmlhttpRequest', 'GM_getValue', 'GM_setValue', 'GM_registerMenuCommand'],
+        grant: ['GM_xmlhttpRequest', 'GM_getValue', 'GM_setValue', 'GM_addValueChangeListener', 'GM_registerMenuCommand'],
         connect: ['api.anthropic.com', 'api.openai.com', 'localhost', '127.0.0.1'],
         'run-at': 'document-idle',
       },

@@ -3,16 +3,16 @@
 // through pipeline.js, so this file is only orchestration.
 import { get, writable } from 'svelte/store';
 import {
-  DEFAULT_SETTINGS, clone, getPath, importSettings, loadSettings, saveSettings, setCurrentSettings, setPath,
+  DEFAULT_SETTINGS, SETTINGS_KEY, clone, getPath, importSettings, loadSettings, saveSettings, setCurrentSettings, setPath,
 } from '../core/settings.js';
 import {
-  JOBS_KEY, canonicalKey, clearCache, loadJobs, loadMeta, saveJobs, saveMeta,
+  JOBS_KEY, META_KEY, canonicalKey, clearCache, loadJobs, loadMeta, saveJobs, saveMeta,
 } from '../core/store.js';
 import {
   buildBackup, buildIndex, dupKeyFor, findSeen, jobsToCsv, mergeJobs, parseBackup, patchJob, removeJob,
   dayString, setStatus, upsertJob,
 } from '../core/jobs.js';
-import { getv, setv } from '../core/gm.js';
+import { canWatch, getv, onRemoteChange, setv } from '../core/gm.js';
 import { log } from '../core/util.js';
 import { scanCards } from '../extract/cards.js';
 import { finalize, logEntryFor, runFitNotes, runPipeline } from '../pipeline.js';
@@ -105,9 +105,13 @@ export function currentSelection() {
 
 setCurrentSettings(get(settings));
 let settingsReady = false;
+let settingsFromStorage = false;   // true while showing what another tab saved: nothing to write back
 
+// Settings are one blob saved whole. With the change listener this tab's copy
+// is current; without it, start from storage so another open window's change
+// is not overwritten.
 export function updateSetting(path, value) {
-  settings.update((s) => setPath(s, path, value));
+  settings.set(setPath(canWatch ? get(settings) : loadSettings(), path, value));
 }
 export function resetSetting(path) {
   updateSetting(path, clone(getPath(DEFAULT_SETTINGS, path)));
@@ -122,10 +126,19 @@ export function importSettingsText(text) {
 settings.subscribe((s) => {
   setCurrentSettings(s);
   if (!settingsReady) return;
-  saveSettings(s);
+  if (!settingsFromStorage) saveSettings(s);
   queueMicrotask(onSettingsChanged);
 });
 settingsReady = true;
+
+// Show settings another tab saved. Cheap (one small blob), so every page listens.
+function settingsFromOtherTab() {
+  const stored = loadSettings();
+  if (JSON.stringify(stored) === JSON.stringify(get(settings))) return;
+  settingsFromStorage = true;
+  try { settings.set(stored); } finally { settingsFromStorage = false; }
+}
+onRemoteChange(SETTINGS_KEY, settingsFromOtherTab);
 
 // A scoring setting needs no new extraction: the facts are already in hand, so
 // the verdict is recomputed in place.
@@ -163,6 +176,19 @@ export function ensureTracker() {
     syncing = false;
   }
   if (migrated) saveJobs(initial);
+  // From now on, follow what other tabs save.
+  onRemoteChange(JOBS_KEY, trackerFromOtherTab);
+  onRemoteChange(META_KEY, trackerFromOtherTab);
+}
+
+function trackerFromOtherTab() {
+  syncing = true;
+  try {
+    jobs.set(loadJobs());
+    meta.set(loadMeta());
+  } finally {
+    syncing = false;
+  }
 }
 
 let syncing = false;   // true while showing what storage already holds: nothing to write back
@@ -175,37 +201,27 @@ meta.subscribe((m) => { if (jobsReady && !syncing) saveMeta(m); });
 jobsReady = true;
 
 // Every tab holds its own copy of the tracker, and every save writes the whole
-// map. So a change starts from what is in storage NOW, not from this tab's
-// copy, or a tab opened earlier would undo what a newer tab saved (an
-// Applied status, a note) the next time it scored anything.
+// map, so a change must start from the newest copy or a tab opened earlier
+// would undo what a newer tab saved (an Applied status, a note). With the
+// change listener this tab's copy is kept current, so it is used as is;
+// without it, the tracker is re-read from storage first.
+function currentJobs() { return canWatch ? get(jobs) : loadJobs(); }
+function currentMeta() { return canWatch ? get(meta) : loadMeta(); }
 function editJobs(fn) {
-  jobs.set(fn(loadJobs()));
+  jobs.set(fn(currentJobs()));
 }
 
-// Show what other tabs saved when this one comes back into view. Settings are
-// one blob edited in place, so they are refreshed here too, before you can
-// change one from a stale copy.
-function syncFromStorage() {
-  if (trackerLoaded) {
-    syncing = true;
-    try {
-      jobs.set(loadJobs());
-      meta.set(loadMeta());
-    } finally {
-      syncing = false;
-    }
-  }
-  const stored = loadSettings();
-  if (JSON.stringify(stored) !== JSON.stringify(get(settings))) settings.set(stored);
-}
-if (typeof document !== 'undefined') {
+// Without the change listener, catch up when the tab comes back into view.
+if (!canWatch && typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') syncFromStorage();
+    if (document.visibilityState !== 'visible') return;
+    if (trackerLoaded) trackerFromOtherTab();
+    settingsFromOtherTab();
   });
 }
 
 function bump(n) {
-  const m = loadMeta();
+  const m = currentMeta();
   meta.set(Object.assign({}, m, { changesSince: m.changesSince + (n || 1) }));
 }
 
@@ -217,7 +233,7 @@ let seenData = null;
 // then records it.
 function trackScore(out) {
   const entry = logEntryFor(out);
-  const before = loadJobs();   // what storage holds now, not this tab's copy (see editJobs)
+  const before = currentJobs();   // the newest copy (see editJobs)
   if (seenFor !== entry.id) {
     const dup = dupKeyFor(entry.company, entry.title);
     const found = findSeen(before, entry.id, dup);
@@ -308,7 +324,7 @@ export function importBackupText(text, mode, withSettings) {
     jobs.set(parsed.jobs);
     bump(Object.keys(parsed.jobs).length);
   } else {
-    const merged = mergeJobs(loadJobs(), parsed.jobs);
+    const merged = mergeJobs(currentJobs(), parsed.jobs);
     jobs.set(merged.jobs);
     bump(merged.added + merged.updated);
     toast(merged.added + ' added, ' + merged.updated + ' updated');
@@ -404,7 +420,8 @@ export function rescoreFromSettings() {
     // The record follows the new verdict (an automatic status moves with it).
     const id = get(session).jobId;
     if (id) {
-      editJobs((j) => (j[id] ? upsertJob(j, Object.assign(logEntryFor(out), { id: id }), Date.now()).jobs : j));
+      // A settings change re-judges the job you are on; it is not another visit.
+      editJobs((j) => (j[id] ? upsertJob(j, Object.assign(logEntryFor(out), { id: id }), Date.now(), { sighting: false }).jobs : j));
     }
     loadFit();
   }

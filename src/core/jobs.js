@@ -155,7 +155,10 @@ function pushHistory(job, status, now, by, note) {
 // Record a fresh score. `entry` is what the pipeline produced (see
 // logEntryFor). Your own edits are never overwritten: only a status that was
 // set automatically follows the verdict.
-export function upsertJob(jobs, entry, now) {
+// `opts.sighting === false` re-judges a record you are already looking at (a
+// settings change), so firstSeen, lastSeen and seenCount stay as they were.
+export function upsertJob(jobs, entry, now, opts) {
+  const sighting = !(opts && opts.sighting === false);
   const id = String(entry.id || '');
   if (!id) return { jobs: jobs, job: null, isNew: false, previous: null };
   const previous = jobs[id] || null;
@@ -181,9 +184,10 @@ export function upsertJob(jobs, entry, now) {
     ote_min: entry.ote_min == null ? null : entry.ote_min,
     ote_max: entry.ote_max == null ? null : entry.ote_max,
     firstSeen: base.firstSeen || iso(now),
-    lastSeen: iso(now),
+    lastSeen: previous && !sighting ? base.lastSeen : iso(now),
     // Pressing Rescore five times is still one visit.
-    seenCount: previous ? (now - Date.parse(base.lastSeen) > 3600000 ? base.seenCount + 1 : base.seenCount) : 1,
+    seenCount: !previous ? 1 : !sighting ? base.seenCount
+      : (now - Date.parse(base.lastSeen) > 3600000 ? base.seenCount + 1 : base.seenCount),
     updatedAt: iso(now),
   });
 
