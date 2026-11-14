@@ -172,6 +172,16 @@ test('policy: LinkedIn is listed on its /jobs/ pages only', () => {
   assert.equal(J.shouldAutoScore(Object.assign({}, feed, { url: 'https://www.linkedin.com/jobs/view/1/' })), true);
 });
 
+test('policy: a careers page that embeds a Greenhouse or Ashby board leaves the panel to the frame', () => {
+  const page = (html) => new DOMParser().parseFromString('<html><body>' + html + '</body></html>', 'text/html');
+  assert.equal(J.embedsListedBoard(page('<div id="grnhse_app"></div><script src="https://boards.greenhouse.io/embed/job_board/js?for=acme"></script>')), true);
+  assert.equal(J.embedsListedBoard(page('<iframe src="https://job-boards.greenhouse.io/embed/job_app?for=acme&token=1"></iframe>')), true);
+  assert.equal(J.embedsListedBoard(page('<div id="ashby_embed"></div>')), true);
+  assert.equal(J.embedsListedBoard(page('<iframe src="https://jobs.ashbyhq.com/acme/embed"></iframe>')), true);
+  assert.equal(J.embedsListedBoard(page('<h1>Careers</h1><iframe src="https://www.youtube.com/embed/x"></iframe>')), false);
+  assert.equal(J.embedsListedBoard(null), false);
+});
+
 test('policy: which URLs get a panel and a page watcher at load', () => {
   const on = J.DEFAULT_SETTINGS;
   const off = J.setPath(J.DEFAULT_SETTINGS, 'general.allSites', false);

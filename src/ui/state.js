@@ -139,15 +139,32 @@ function onSettingsChanged() {
    follow-up) is saved on the same record. It is persisted on every change and
    is never trimmed. */
 
-const initialJobs = loadJobs();
-// First run of the tracker: write the migrated log out straight away, so the
-// old log is never the only copy.
-if (Object.keys(initialJobs).length && getv(JOBS_KEY, null) === null) saveJobs(initialJobs);
-
-export const jobs = writable(initialJobs);
-export const meta = writable(loadMeta());
+export const jobs = writable({});
+export const meta = writable({ lastBackupAt: null, changesSince: 0 });
 
 let jobsReady = false;
+let trackerLoaded = false;
+
+// The catch-all @match loads this module on every page and in every frame, and
+// the tracker is never trimmed, so it is read on first use (the panel mounting)
+// instead of at load. Until then card scans and tab-focus refreshes do nothing.
+export function ensureTracker() {
+  if (trackerLoaded) return;
+  trackerLoaded = true;
+  const initial = loadJobs();
+  // First run of the tracker: write the migrated log out straight away, so the
+  // old log is never the only copy.
+  const migrated = Object.keys(initial).length && getv(JOBS_KEY, null) === null;
+  syncing = true;
+  try {
+    jobs.set(initial);
+    meta.set(loadMeta());
+  } finally {
+    syncing = false;
+  }
+  if (migrated) saveJobs(initial);
+}
+
 let syncing = false;   // true while showing what storage already holds: nothing to write back
 jobs.subscribe((j) => {
   if (!jobsReady) return;
@@ -169,12 +186,14 @@ function editJobs(fn) {
 // one blob edited in place, so they are refreshed here too, before you can
 // change one from a stale copy.
 function syncFromStorage() {
-  syncing = true;
-  try {
-    jobs.set(loadJobs());
-    meta.set(loadMeta());
-  } finally {
-    syncing = false;
+  if (trackerLoaded) {
+    syncing = true;
+    try {
+      jobs.set(loadJobs());
+      meta.set(loadMeta());
+    } finally {
+      syncing = false;
+    }
   }
   const stored = loadSettings();
   if (JSON.stringify(stored) !== JSON.stringify(get(settings))) settings.set(stored);
@@ -301,6 +320,7 @@ export function importBackupText(text, mode, withSettings) {
 /* ------------------------------------------------------- results-page cards */
 
 export function scanCardsSafe() {
+  if (!trackerLoaded) return;                // an idle page: no panel, no card labels
   try {
     const s = get(settings);
     const idx = buildIndex(get(jobs));

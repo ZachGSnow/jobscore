@@ -341,7 +341,7 @@ The JobPosting structured data (remote work, salary) is sent to the model and is
 part of the evidence that quotes are checked against, so a fact quoted from it
 verifies like any other.
 
-The catch-all `@match *://*/*` also loads the script in every iframe. In an iframe on a host that is not a listed job board, the script does nothing.
+The catch-all `@match *://*/*` also loads the script in every iframe. In an iframe on a host that is not a listed job board, the script does nothing, and on any page it stays idle (no panel, no tracker read) until the page is a job page or you press Alt+1. A careers page that embeds a Greenhouse or Ashby board leaves the panel to the board's own frame.
 
 ## Developing
 

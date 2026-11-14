@@ -4,8 +4,10 @@ import { mount } from 'svelte';
 import App from './App.svelte';
 import css from './panel.css?inline';
 import { createHost, host, watchHost } from './host.js';
+import { ensureTracker } from './state.js';
 
 export function ensurePanel() {
+  ensureTracker();
   if (host.el) return;
   createHost(css);
   mount(App, { target: host.root });
